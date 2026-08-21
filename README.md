@@ -23,3 +23,6 @@ Line 144 in authentication.php
 
 
 
+NOTE:
+i want to make it that it doesnt make an inactive account?
+after an unsuccessful creation of account it disregard it and not procceed on the pending?
