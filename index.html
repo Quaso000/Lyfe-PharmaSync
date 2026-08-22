@@ -23,13 +23,6 @@
             <div id="form-login">
                 <form onsubmit="handleLogin(event)">
                     <div class="form-group">
-                        <label>System Role Authorization</label>
-                        <select id="login-role" name="role">
-                            <option value="Owner">Admin</option>
-                            <option value="Employee">Employee/Staff</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label>Username</label>
                         <input type="text" id="login-user" value="" name="username">
                     </div>
@@ -45,29 +38,26 @@
                 </form>
             </div>
 
+            
+
             <!-- SIGN UP FORM -->
             <div id="form-signup" class="hidden">
                 <p style="text-align:center; color:#666;">New staff accounts must be verified by the Owner.</p>
-                <div class="form-group">
-                    <label>Signup Role</label>
-                    <select id="signup-role" name="role">
-                        <option value="1">Admin</option>
-                        <option value="2">Employee/Staff</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>First Name</label><input type="text" id="signup-firstname"></div>
-                <div class="form-group"><label>Middle Initial</label><input type="text" id="signup-middleInitial"></div>
-                <div class="form-group"><label>Surname</label><input type="text" id="signup-surname"></div>
-                <div class="form-group"><label>Email Address</label><input type="email" id="signup-email" placeholder="name@example.com"></div>
-                <div class="form-group"><label>Phone Number</label><input type="text" id="signup-phoneNumber" placeholder="e.g. 09123456789"></div>
-                <div class="form-group"><label>Username</label><input type="text" id="signup-username"></div>
-                <div class="form-group">
-                    <label>Create Password</label>
-                    <input type="password" id="signup-pwd">
-                    <label>Confirm Password</label>
-                    <input type="password" id="signup-confirm-pwd">
-                </div>
-                <button class="btn btn-secondary" style="width: 100%; padding: 14px; font-size: 1.05rem;" onclick="handleSignup()">Request Access</button>
+                <form onsubmit="handleSignup(event)">
+                    <div class="form-group"><label>First Name</label><input type="text" id="signup-firstname"></div>
+                    <div class="form-group"><label>Middle Initial</label><input type="text" id="signup-middleInitial"></div>
+                    <div class="form-group"><label>Surname</label><input type="text" id="signup-surname"></div>
+                    <div class="form-group"><label>Email Address</label><input type="email" id="signup-email" placeholder="name@example.com"></div>
+                    <div class="form-group"><label>Phone Number</label><input type="text" id="signup-phoneNumber" placeholder="e.g. 09123456789"></div>
+                    <div class="form-group"><label>Username</label><input type="text" id="signup-username"></div>
+                    <div class="form-group">
+                        <label>Create Password</label>
+                        <input type="password" id="signup-pwd">
+                        <label>Confirm Password</label>
+                        <input type="password" id="signup-confirm-pwd">
+                    </div>
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 14px; font-size: 1.05rem;">Request Access</button>
+                </form>
             </div>
 
             <!-- FORGOT PASSWORD FORM -->

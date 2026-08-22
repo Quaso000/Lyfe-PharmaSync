@@ -31,9 +31,8 @@
         case 'login':
             $usernameInput = trim($_POST['username'] ?? '');
             $passwordInput = $_POST['password'] ?? '';
-            $roleInput = trim($_POST['role'] ?? '');
 
-            if(empty($usernameInput) || empty($passwordInput) || empty($roleInput)){
+            if(empty($usernameInput) || empty($passwordInput)){
                 echo json_encode([
                     "success" => false, 
                     "message" => "Please enter username and password."
@@ -44,10 +43,10 @@
             $sql = 'SELECT u.user_id, u.first_name, u.last_name, u.password, u.status, r.role_name 
                     FROM users u 
                     JOIN roles r ON u.role_id = r.role_id 
-                    WHERE u.username = ? AND r.role_name = ?';
+                    WHERE u.username = ?';
 
             $stmt = $pdo->prepare($sql);
-            $stmt -> execute([$usernameInput, $roleInput]);
+            $stmt -> execute([$usernameInput]);
             $userRecord = $stmt->fetch();
 
             if (!$userRecord){
@@ -86,7 +85,6 @@
         break;
         
         case 'signup':
-            $role = $_POST['role'] ?? '';
             $firstName = trim($_POST['firstName'] ?? '');
             $middleInitial = trim($_POST['middleInitial'] ?? '');
             $surname = trim($_POST['surname'] ?? '');
@@ -94,11 +92,20 @@
             $email = trim($_POST['email'] ?? '');
             $username = trim($_POST['username'] ?? '');
             $passwrd = $_POST['password'] ?? '';
+            $cfrmpasswrd = $_POST['cfrmpassword'] ?? '';
 
-            if(empty($role) || empty($firstName) || empty($middleInitial) || empty($surname) || empty($phoneNumber) || empty($email) || empty($username) || empty($passwrd)){
+            if(empty($firstName) || empty($surname) || empty($phoneNumber) || empty($email) || empty($username) || empty($passwrd) || empty($cfrmpasswrd)){
                 echo json_encode([
                     "success" => false, 
                     "message" => "All fields are required."
+                ]);
+                exit;
+            }
+
+            if($passwrd !== $cfrmpasswrd){
+                echo json_encode([
+                    "success" => false,
+                    "message" => "The passwords you entered do not match."
                 ]);
                 exit;
             }
@@ -113,25 +120,25 @@
                 exit;
             }
 
-            // $roleStmt = $pdo -> prepare('SELECT users (role_id, first_name, middle_initial)')
-
-            // $roleStmt = $pdo->prepare('SELECT role_id FROM roles WHERE role_name = "Employee"');
-            // $roleStmt->execute();
-            // $roleRecord = $roleStmt->fetch();
+            $roleStmt = $pdo->prepare('SELECT role_id FROM roles WHERE role_name = "Employee"');
+            $roleStmt->execute();
+            $roleRecord = $roleStmt->fetch();
             
-            // if(!$roleRecord) {
-            //     echo json_encode([
-            //         "success" => false, 
-            //         "message" => "Default Employee role not found."
-            //     ]);
-            //     exit;
-            // }
+            if(!$roleRecord) {
+                echo json_encode([
+                    "success" => false, 
+                    "message" => "Default Employee role not found."
+                ]);
+                exit;
+            }
+
+            $defaultRoleId = $roleRecord['role_id'];
 
             $insertStmt = $pdo->prepare('INSERT INTO users (role_id, first_name, middle_initial, last_name, phone_number, email, username, password, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, "Pending")');
-            if($insertStmt->execute([$role, $firstName, $middleInitial, $surname, $phoneNumber, $email, $username, $passwrd])) {
+            if($insertStmt->execute([$defaultRoleId, $firstName, $middleInitial, $surname, $phoneNumber, $email, $username, $passwrd])) {
                 echo json_encode([
                     "success" => true, 
-                    "message" => "Account requested successfully. Waiting for Owner approval."
+                    "message" => "Account request submitted. Waiting for Owner approval."
                 ]);
             } else {
                 echo json_encode([

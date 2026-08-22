@@ -24,13 +24,11 @@ async function handleLogin(event) {
     
     const usernameInput = document.getElementById('login-user').value.trim();
     const pwdInput = document.getElementById('login-pwd').value;
-    const roleInput = document.getElementById('login-role').value;
 
     const toBeSend = new FormData();
     toBeSend.append('action', 'login');
     toBeSend.append('username', usernameInput);
     toBeSend.append('password', pwdInput);
-    toBeSend.append('role', roleInput);
 
     try {
         const response = await fetch('authentication.php', {
@@ -144,8 +142,11 @@ function closeModal(id) {
     document.getElementById(id).classList.add('hidden'); 
 }
 
-function handleSignup() { 
-    const role = document.getElementById('signup-role').value;
+async function handleSignup(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    
     const firstName = document.getElementById('signup-firstname').value.trim();
     const middleInitial = document.getElementById('signup-middleInitial').value.trim();
     const surname = document.getElementById('signup-surname').value.trim();
@@ -153,22 +154,66 @@ function handleSignup() {
     const phoneNumber = document.getElementById('signup-phoneNumber').value.trim();
     const username = document.getElementById('signup-username').value.trim();
     const password = document.getElementById('signup-pwd').value;
+    const confirmPassword = document.getElementById('signup-confirm-pwd').value;
 
-    if(!role || !firstName || !middleInitial || !surname || !phoneNumber || !email || !username || !password) return alert("Please fill in all required fields.");
+    if(!firstName || !surname || !phoneNumber || !email || !username || !password || !confirmPassword) {
+        return alert("Please fill in all required fields.");
+    }
+
+    if(password !== confirmPassword) {
+        return alert("The passwords you entered do not match.");
+    }
 
     const toBeSend = new FormData();
     toBeSend.append('action', 'signup');
-    toBeSend.append('role', role);
-    toBeSend.append('firstname', firstName);
+    toBeSend.append('firstName', firstName);
     toBeSend.append('middleInitial', middleInitial ?? '');
     toBeSend.append('surname', surname);
     toBeSend.append('phoneNumber', phoneNumber);
     toBeSend.append('email', email);
     toBeSend.append('username', username);
     toBeSend.append('password', password);
+    toBeSend.append('cfrmpassword', confirmPassword);
 
-    alert("Account request submitted. Waiting for Owner approval."); 
-    switchAuthTab('login'); 
+    try{
+        const response = await fetch('authentication.php', {
+            method: 'POST',
+            body: toBeSend
+        });
+
+        const data = await response.json();
+
+        // const rawResponse = await response.text();
+        // console.log("RAW SERVER RESPONSE:", rawResponse);
+
+        // if (!response.ok) {
+        //     throw new Error(`Server returned status code ${response.status}`);
+        // }
+
+        // const data = JSON.parse(rawResponse);
+
+        if (!data.success){
+            return alert("Access Denied: " + data.message);
+        }
+
+        alert(data.message); 
+
+        document.getElementById('signup-firstname').value = '';
+        document.getElementById('signup-middleInitial').value = '';
+        document.getElementById('signup-surname').value = '';
+        document.getElementById('signup-email').value = '';
+        document.getElementById('signup-phoneNumber').value = '';
+        document.getElementById('signup-username').value = '';
+        document.getElementById('signup-pwd').value = '';
+        document.getElementById('signup-confirm-pwd').value = '';
+        
+        switchAuthTab('login'); 
+
+    } catch (error) {
+        console.error("System error: ", error);
+        alert("A connection error occurred with the server. Please ensure the database hosting is up.");
+         
+    }
 }
 
 
