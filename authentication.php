@@ -67,7 +67,7 @@
                 exit;
             }
 
-            if (strtolower($userRecord['status']) === 'inactive' || strtolower($userRecord['status']) === 'pending') {
+            if (strtolower($userRecord['status']) === 'pending') {
                 echo json_encode([
                     "success" => false, 
                     "message" => "Account is disabled or pending approval. Contact the Owner."
@@ -75,13 +75,17 @@
                 exit;
             }
 
+            $updateSession = $pdo->prepare("UPDATE users SET status = 'Online', last_login = NOW() WHERE user_id = ?");
+            $updateSession->execute([$userRecord['user_id']]);
+
             echo json_encode([
                 "success" => true, 
                 "user" => [
                     "id" => $userRecord['user_id'],
                     "name" => trim($userRecord['first_name'] . ' ' . $userRecord['last_name']),
                     "role" => $userRecord['role_name']
-                ]]);
+                ]
+            ]);
         break;
         
         case 'signup':
@@ -171,7 +175,6 @@
                 exit;
             }
 
-            // code for including api key for password reset
             $otpCode = rand(100000, 999999);
 
             // $API_Key = '';
@@ -255,6 +258,19 @@
                     "message" => "Failed to update user in the database."
                 ]);
             }
+        break;
+
+        case 'logout':
+            $userId = $_POST['user_name'] ?? '';
+            
+            if(!empty($userId)) {
+                $logoutStmt = $pdo->prepare("UPDATE users SET status = 'Offline' WHERE user_id = ?");
+                $logoutStmt->execute([$userId]);
+            }
+            
+            echo json_encode([
+                "success" => true
+            ]);
         break;
 
         default:

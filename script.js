@@ -99,7 +99,7 @@ async function handleForgotPassword() {
 
 
 
-    
+
     if(!identifier) return alert("Please enter your email or username.");
 
     //alert notif design
@@ -227,18 +227,38 @@ function closeModal(id) {
 
 
 
-function handleLogout() {
-    let userObj = usersDb.find(u => u.id === currentUserId);
-    if(userObj) {
-        userObj.status = "Offline";
-        userObj.lastLogout = new Date().toLocaleString();
+async function handleLogout() {
+    const currentUser = document.getElementById('user-name-display').innerText.trim();
+
+    const toBesend = new FormData();
+    toBesend.append('action', 'logout');
+    toBesend.append('user_name', currentUser);
+    
+    try {
+        await fetch('authentication.php', {
+            method: 'POST',
+            body: toBesend
+        });
+
+        document.getElementById('auth-screen').classList.remove('hidden');
+        document.getElementById('app-sidebar').style.display = 'none';
+        document.getElementById('app-content').style.display = 'none';
+
+        document.getElementById('login-pwd').value = '';
+        document.getElementById('login-user').value = '';
+        
+        switchAuthTab('login'); 
+
+    } catch (error) {
+        console.error("Logout Error: ", error);
+        alert("A connection error occurred while logging out.");
     }
 
-    document.getElementById('auth-screen').classList.remove('hidden');
-    document.getElementById('app-sidebar').style.display = 'none';
-    document.getElementById('app-content').style.display = 'none';
+    // if(currentUser) {
+    //     currentUser.status = "Offline";
+    //     currentUser.lastLogout = new Date().toLocaleString();
+    // }
 
-    document.getElementById('login-pwd').value = '';
 }
 
 function switchModule(modId) {

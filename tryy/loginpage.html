@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal & Sign Up Access | PharmaSync Enterprise</title>
+    <link rel="stylesheet" href="loginpagestyle.css">
+</head>
+<body>
+
+    <div class="split-layout">
+        
+        <!-- LEFT PANEL: Dynamic Enterprise Showcase -->
+        <div class="left-panel hidden-mobile">
+            <!-- Background Glow Effects -->
+            <div class="glow-effect glow-brand"></div>
+            <div class="glow-effect glow-cyan"></div>
+
+            <!-- Top Brand Identity -->
+            <div class="brand-header">
+                <div class="brand-logo">
+                    <!-- Replaced Lucide icon with simple text/svg placeholder -->
+                    <span class="logo-icon">⚕</span>
+                </div>
+                <span class="brand-text">Pharma<span>Sync</span></span>
+            </div>
+
+            <!-- Center Feature Highlight -->
+            <div class="feature-content">
+                <div class="badge">
+                    <span class="pulse-dot"></span>
+                    <span>Series A / IR Portal</span>
+                </div>
+                <h2 class="main-heading">
+                    Powering the Future of <br>Medical Distribution.
+                </h2>
+                <p class="sub-heading">
+                    Access high-level fiscal transparency, live scaling metrics, quarterly financial performance reports, and secure stakeholder updates.
+                </p>
+
+                <!-- Mini Metric Card Preview -->
+                <div class="metric-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">YOY Growth</div>
+                        <div class="metric-value">+240%</div>
+                        <div class="metric-status text-emerald">
+                            ↗ Accelerating
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Network Hubs</div>
+                        <div class="metric-value">48 Active</div>
+                        <div class="metric-status text-emerald">
+                            ✓ Fully Audited
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Compliance Note -->
+            <div class="panel-footer">
+                <span>&copy; 2026 PharmaSync Technologies. SEC & HIPAA Compliant.</span>
+                <div class="footer-links">
+                    <a href="#">IR Contact</a>
+                    <a href="#">Security</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Switchable Auth/Sign Up Card -->
+        <div class="right-panel">
+            <div class="auth-box">
+                
+                <!-- Mobile Logo -->
+                <div class="brand-header mobile-only">
+                    <div class="brand-logo mobile-logo">
+                        <span class="logo-icon">⚕</span>
+                    </div>
+                    <span class="brand-text">Pharma<span>Sync</span></span>
+                </div>
+
+                <!-- Mode Switcher Tabs (Wired to your JS) -->
+                <div class="pill-tabs">
+                    <button class="pill-tab active" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
+                    <button class="pill-tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign Up</button>
+                </div>
+
+                <div class="form-container">
+                    
+                    <!-- FORM 1: AUTH SIGN IN (Wired to your JS) -->
+                    <div id="form-login" class="auth-form active">
+                        <div class="form-header">
+                            <h1>Welcome back</h1>
+                            <p>Enter your credentials to access your portal.</p>
+                        </div>
+
+                        <form onsubmit="handleLogin(event)">
+                            <div class="form-group">
+                                <label>Username</label>
+                                <input type="text" id="login-user" required placeholder="Enter your username">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Password</label>
+                                <input type="password" id="login-pwd" required placeholder="••••••••••••">
+                                <div class="form-options">
+                                    <label class="pwd-toggle">
+                                        <input type="checkbox" onchange="togglePassword('login-pwd')"> Show Password
+                                    </label>
+                                    <span class="forgot-link" onclick="showForgotPassword()">Forgot password?</span>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-brand btn-block">
+                                <span>Log In</span>
+                                <span>→</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- FORM 2: SIGN UP (Wired to your JS) -->
+                    <div id="form-signup" class="auth-form hidden">
+                        <div class="form-header">
+                            <h1>Create an Account</h1>
+                            <p>Register your profile to gain access to the PharmaSync platform.</p>
+                        </div>
+
+                        <form onsubmit="handleSignup(event)">
+                            <!-- Name fields grid -->
+                            <div class="form-grid name-grid">
+                                <div class="form-group col-span-2">
+                                    <label>First Name</label>
+                                    <input type="text" id="signup-firstname" required placeholder="Jane">
+                                </div>
+                                <div class="form-group col-span-1">
+                                    <label>M.I.</label>
+                                    <input type="text" id="signup-middleInitial" maxlength="3" class="text-center" placeholder="A.">
+                                </div>
+                                <div class="form-group col-span-2">
+                                    <label>Surname</label>
+                                    <input type="text" id="signup-surname" required placeholder="Doe">
+                                </div>
+                            </div>
+
+                            <!-- Contact Info -->
+                            <div class="form-grid two-cols">
+                                <div class="form-group">
+                                    <label>Email Address</label>
+                                    <input type="email" id="signup-email" required placeholder="jane.doe@example.com">
+                                </div>
+                                <div class="form-group">
+                                    <label>Phone Number</label>
+                                    <input type="tel" id="signup-phoneNumber" required placeholder="09123456789">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Username</label>
+                                <input type="text" id="signup-username" required placeholder="Choose a username">
+                            </div>
+
+                            <!-- Passwords -->
+                            <div class="form-grid two-cols">
+                                <div class="form-group">
+                                    <label>Create Password</label>
+                                    <input type="password" id="signup-pwd" required placeholder="••••••••••••">
+                                </div>
+                                <div class="form-group">
+                                    <label>Confirm Password</label>
+                                    <input type="password" id="signup-confirm-pwd" required placeholder="••••••••••••">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-emerald btn-block mt-2">
+                                ✓ Request Access
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- FORGOT PASSWORD FORM (Included from your sample) -->
+                    <div id="form-forgot" class="auth-form hidden">
+                        <div class="form-header text-center">
+                            <h1>Reset Password</h1>
+                            <p>Enter your registered email address or username to receive a secure password reset link.</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Account Identifier</label>
+                            <input type="text" id="forgot-identifier" placeholder="Enter account details...">
+                        </div>
+                        <button class="btn btn-brand btn-block mt-2" onclick="handleForgotPassword()">Send Reset Link</button>
+                        <div class="text-center mt-3">
+                            <span class="forgot-link" onclick="switchAuthTab('login')">← Back to Login</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- The external script file you provided -->
+    <script src="script.js"></script>    
+
+</body>
+</html>
