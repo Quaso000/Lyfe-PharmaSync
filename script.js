@@ -81,7 +81,7 @@ function togglePassword(inputId) {
     input.type = input.type === "password" ? "text" : "password";
 }
 
-
+//   =============== WORKING FINE ===========
 function showForgotPassword() {
     document.getElementById('form-login').classList.add('hidden');
     document.getElementById('form-signup').classList.add('hidden');
@@ -95,6 +95,11 @@ function showForgotPassword() {
 
 async function handleForgotPassword() {
     const identifier = document.getElementById('forgot-identifier').value.trim();
+    
+
+
+
+    
     if(!identifier) return alert("Please enter your email or username.");
 
     //alert notif design
@@ -123,6 +128,7 @@ async function handleForgotPassword() {
     }
 }
 
+//   =============== WORKING FINE ===========
 function switchAuthTab(tab) {
     document.getElementById('tab-login').classList.remove('active');
     document.getElementById('tab-signup').classList.remove('active');
@@ -136,12 +142,7 @@ function switchAuthTab(tab) {
     }
 }
 
-
-
-function closeModal(id) { 
-    document.getElementById(id).classList.add('hidden'); 
-}
-
+//   =============== WORKING FINE ===========
 async function handleSignup(event) {
     if (event) {
         event.preventDefault();
@@ -215,6 +216,13 @@ async function handleSignup(event) {
          
     }
 }
+
+
+function closeModal(id) { 
+    document.getElementById(id).classList.add('hidden'); 
+}
+
+
 
 
 
