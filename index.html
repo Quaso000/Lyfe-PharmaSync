@@ -80,6 +80,7 @@
         </div>
     </div>
 
+
     <!-- Inventory Registration Modal -->
     <div id="inventory-modal" class="overlay hidden">
         <div class="modal-box">
@@ -186,6 +187,46 @@
         </div>
 
         <div class="content-body">
+            <!-- USER MODULE UI, FUNCTION, AND STRUCTURE -->
+            <div id="users" class="module">
+                <h2 class="header-title">Personnel & Users Module</h2>
+                
+                <div class="card" style="margin-bottom: 25px; border-top-color: var(--dark);">
+                    <h3 style="color: var(--dark); margin-bottom: 15px;">🔒 Account Security (Change Password)</h3>
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">Update your login password securely. You must verify your current password to proceed.</p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: end;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Current Password</label>
+                            <input type="password" id="cp-current" placeholder="Enter current password">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>New Password</label>
+                            <input type="password" id="cp-new" placeholder="Enter new password">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Confirm New Password</label>
+                            <input type="password" id="cp-confirm" placeholder="Confirm new password">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" style="margin-top: 20px;" onclick="updatePassword()">Update Password</button>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Employee (Username)</th>
+                            <th>Role Authorization</th>
+                            <th>Account Status</th>
+                            <th>Last Login</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-tbody">
+                        <tr><td colspan="4" style="text-align:center; color:#888;">Loading users...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
             <!-- DASHBOARD MODULE UI, FUNCTION, AND STRUCTURE -->
             <div id="dashboard" class="module active">
                 <h2 class="header-title">Live System Dashboard</h2>
@@ -456,45 +497,7 @@
 
             </div>
 
-            <!-- USER MODULE UI, FUNCTION, AND STRUCTURE -->
-            <div id="users" class="module">
-                <h2 class="header-title">Personnel & Users Module</h2>
-                
-                <div class="card" style="margin-bottom: 25px; border-top-color: var(--dark);">
-                    <h3 style="color: var(--dark); margin-bottom: 15px;">🔒 Account Security (Change Password)</h3>
-                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">Update your login password securely. You must verify your current password to proceed.</p>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: end;">
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label>Current Password</label>
-                            <input type="password" id="cp-current" placeholder="Enter current password">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label>New Password</label>
-                            <input type="password" id="cp-new" placeholder="Enter new password">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label>Confirm New Password</label>
-                            <input type="password" id="cp-confirm" placeholder="Confirm new password">
-                        </div>
-                    </div>
-                    <button class="btn btn-primary" style="margin-top: 20px;" onclick="updatePassword()">Update Password</button>
-                </div>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Employee (Username)</th>
-                            <th>Role Authorization</th>
-                            <th>Account Status</th>
-                            <th>Admin Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="users-tbody">
-                        <tr><td colspan="4" style="text-align:center; color:#888;">Loading users...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+            
         </div>
     </div>
 

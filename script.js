@@ -1,21 +1,5 @@
 document.getElementById('current-date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-
-
-// let inventoryHistory = []; 
-// let totalRevenue = 226.75; 
-// let currentUserRole = "Owner";
-// let currentUserName = "John Kaye P. Fernandez";
-// let currentUserId = "admin";
-// let revenueChartInst = null;
-// let financialHealthChartInst = null;
-// let dismissedAlerts = []; 
-
-
-
-// sadsdasd
-
-
 // ========= LOGIN AUTHENTICATION IS DONE ========
 async function handleLogin(event) {
     if (event) {
@@ -49,6 +33,9 @@ async function handleLogin(event) {
 
         document.getElementById('user-role-display').innerText = currentUserRole;
         document.getElementById('user-name-display').innerText = currentUserName;
+
+    document.getElementById('user-name-display').setAttribute('data-userid', data.user.id);
+
 
         // para ipakita yung modules na kaya nilang iaccess based on roles
         document.querySelectorAll('.module-link').forEach(btn => {
@@ -87,45 +74,8 @@ function showForgotPassword() {
     document.getElementById('form-signup').classList.add('hidden');
     document.getElementById('form-forgot').classList.remove('hidden');
 
-    //more php work here to send password request
-
     document.getElementById('tab-login').classList.remove('active');
     document.getElementById('tab-signup').classList.remove('active');
-}
-
-async function handleForgotPassword() {
-    const identifier = document.getElementById('forgot-identifier').value.trim();
-    
-
-
-
-
-    if(!identifier) return alert("Please enter your email or username.");
-
-    //alert notif design
-
-    // php confirmation to send approval password request
-    const formData = new FormData();
-    formData.append('action', 'forgot_password');
-    formData.append('identifier', identifier);
-
-    try {
-        const response = await fetch('authentication.php', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-
-        if (!data.success) {
-            return alert("Verification Failed: " + data.message);
-        }
-
-        alert(`A password reset link has been sent to the email associated with "${identifier}". Please check your inbox.`);
-        document.getElementById('forgot-identifier').value = '';
-        switchAuthTab('login');
-    } catch (error){
-        alert("A connection error occured.");
-    }
 }
 
 //   =============== WORKING FINE ===========
@@ -184,15 +134,6 @@ async function handleSignup(event) {
 
         const data = await response.json();
 
-        // const rawResponse = await response.text();
-        // console.log("RAW SERVER RESPONSE:", rawResponse);
-
-        // if (!response.ok) {
-        //     throw new Error(`Server returned status code ${response.status}`);
-        // }
-
-        // const data = JSON.parse(rawResponse);
-
         if (!data.success){
             return alert("Access Denied: " + data.message);
         }
@@ -217,6 +158,126 @@ async function handleSignup(event) {
     }
 }
 
+//   =============== WORKING FINE ===========
+async function handleLogout() {
+    const userId = document.getElementById('user-name-display').getAttribute('data-userid');
+
+    const toBeSend = new FormData();
+    toBeSend.append('action', 'logout');
+    toBeSend.append('user_id', userId);
+    
+    try {
+        await fetch('authentication.php', {
+            method: 'POST',
+            body: toBeSend
+        });
+
+        document.getElementById('auth-screen').classList.remove('hidden');
+        document.getElementById('app-sidebar').style.display = 'none';
+        document.getElementById('app-content').style.display = 'none';
+
+        document.getElementById('login-pwd').value = '';
+        document.getElementById('login-user').value = '';
+        
+        document.getElementById('user-name-display').removeAttribute('data-userid');
+
+        switchAuthTab('login'); 
+
+    } catch (error) {
+        console.error("Logout Error: ", error);
+        alert("A connection error occurred while logging out.");
+    }
+}
+
+//   =============== WORKING FINE ===========
+function switchModule(modId) {
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(modId).classList.add('active');
+
+    const activeBtn = document.querySelector(`.nav-btn[data-target="${modId}"]`);
+    if(activeBtn) activeBtn.classList.add('active');
+
+    if(modId === 'users') {
+        fetchUsersList();
+    }
+
+    if(modId === 'expiry-alerts') {
+        renderSmsSettings();
+    }
+}
+
+//   =============== WORKING FINE ===========
+async function fetchUsersList() {
+    const toBeSend = new FormData();
+    toBeSend.append('action', 'fetch_users');
+    
+    try {
+        const response = await fetch('authentication.php', { 
+            method: 'POST', 
+            body: toBeSend 
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            const tbody = document.getElementById('users-tbody');
+            
+            tbody.innerHTML = data.users.map(user => {
+                // Safely format the middle initial (adds a dot and space if it exists)
+                let mi = user.middle_initial ? `${user.middle_initial}. ` : '';
+                let fullName = `${user.first_name} ${mi}${user.last_name}`;
+                
+                // Set CSS colors based on their current status
+                let statusColor = user.status === 'Online' ? 'var(--secondary)' : (user.status === 'Pending' ? 'var(--warning)' : '#6c757d');
+                
+                // Assign a badge color based on their role
+                let roleBadge = (user.role_name === "Admin" || user.role_name === "Owner") ? `<span class="badge badge-success">${user.role_name}</span>` : `<span class="badge badge-warning">${user.role_name}</span>`;
+
+                return `<tr>
+                    <td><strong>${fullName}</strong></td>
+                    <td>${roleBadge}</td>
+                    <td><span style="color: ${statusColor}; font-weight: bold;">● ${user.status}</span></td>
+                    <td style="font-size: 0.85rem; color: #555;">N/A</td>
+                </tr>`;
+            }).join('');
+        }
+    } catch (error) {
+        console.error("Failed to load users: ", error);
+    }
+}
+
+
+async function handleForgotPassword() {
+    const identifier = document.getElementById('forgot-identifier').value.trim();
+    
+    if(!identifier) return alert("Please enter your email or username.");
+
+    //alert notif design
+
+    // php confirmation to send approval password request
+    const formData = new FormData();
+    formData.append('action', 'forgot_password');
+    formData.append('identifier', identifier);
+
+    try {
+        const response = await fetch('authentication.php', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (!data.success) {
+            return alert("Verification Failed: " + data.message);
+        }
+
+        alert(`A password reset link has been sent to the email associated with "${identifier}". Please check your inbox.`);
+        document.getElementById('forgot-identifier').value = '';
+        switchAuthTab('login');
+    } catch (error){
+        alert("A connection error occured.");
+    }
+}
+
 
 function closeModal(id) { 
     document.getElementById(id).classList.add('hidden'); 
@@ -227,52 +288,7 @@ function closeModal(id) {
 
 
 
-async function handleLogout() {
-    const currentUser = document.getElementById('user-name-display').innerText.trim();
 
-    const toBesend = new FormData();
-    toBesend.append('action', 'logout');
-    toBesend.append('user_name', currentUser);
-    
-    try {
-        await fetch('authentication.php', {
-            method: 'POST',
-            body: toBesend
-        });
-
-        document.getElementById('auth-screen').classList.remove('hidden');
-        document.getElementById('app-sidebar').style.display = 'none';
-        document.getElementById('app-content').style.display = 'none';
-
-        document.getElementById('login-pwd').value = '';
-        document.getElementById('login-user').value = '';
-        
-        switchAuthTab('login'); 
-
-    } catch (error) {
-        console.error("Logout Error: ", error);
-        alert("A connection error occurred while logging out.");
-    }
-
-    // if(currentUser) {
-    //     currentUser.status = "Offline";
-    //     currentUser.lastLogout = new Date().toLocaleString();
-    // }
-
-}
-
-function switchModule(modId) {
-    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(modId).classList.add('active');
-
-    const activeBtn = document.querySelector(`.nav-btn[data-target="${modId}"]`);
-    if(activeBtn) activeBtn.classList.add('active');
-
-    if(modId === 'expiry-alerts') {
-        renderSmsSettings();
-    }
-}
 
 function updatePassword() {
     const currentInput = document.getElementById('cp-current').value;

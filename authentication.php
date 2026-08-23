@@ -218,11 +218,13 @@
         break;
 
         case 'fetch_users':
-            // Fetch all users and their current roles from the database
-            $stmt = $pdo->prepare('SELECT u.user_id, u.first_name, u.last_name, u.username, u.status, r.role_id, r.role_name 
-                                   FROM users u 
-                                   JOIN roles r ON u.role_id = r.role_id 
-                                   ORDER BY u.user_id DESC');
+            // Sorts by Role ID (Admin first), then alphabetically by First Name and Last Name
+            $stmt = $pdo->prepare("
+                SELECT u.user_id, u.first_name, u.middle_initial, u.last_name, u.status, r.role_name, u.role_id 
+                FROM users u 
+                JOIN roles r ON u.role_id = r.role_id 
+                ORDER BY u.role_id ASC, u.first_name ASC, u.last_name ASC
+            ");
             $stmt->execute();
             $users = $stmt->fetchAll();
             
@@ -261,16 +263,15 @@
         break;
 
         case 'logout':
-            $userId = $_POST['user_name'] ?? '';
+            $userId = $_POST['user_id'] ?? '';
             
             if(!empty($userId)) {
+                // Instantly targets the exact row using the Primary Key
                 $logoutStmt = $pdo->prepare("UPDATE users SET status = 'Offline' WHERE user_id = ?");
                 $logoutStmt->execute([$userId]);
             }
             
-            echo json_encode([
-                "success" => true
-            ]);
+            echo json_encode(["success" => true]);
         break;
 
         default:
