@@ -233,11 +233,13 @@ async function fetchUsersList() {
                 // Assign a badge color based on their role
                 let roleBadge = (user.role_name === "Admin" || user.role_name === "Owner") ? `<span class="badge badge-success">${user.role_name}</span>` : `<span class="badge badge-warning">${user.role_name}</span>`;
 
+                // Grab the timestamp from the DB, or show a fallback message
+                let lastLoginDisplay = user.last_login ? user.last_login : '<i style="color:#aaa;">Never logged in</i>';
                 return `<tr>
                     <td><strong>${fullName}</strong></td>
                     <td>${roleBadge}</td>
                     <td><span style="color: ${statusColor}; font-weight: bold;">● ${user.status}</span></td>
-                    <td style="font-size: 0.85rem; color: #555;">N/A</td>
+                    <td style="font-size: 0.85rem; color: #555;">${lastLoginDisplay}</td>
                 </tr>`;
             }).join('');
         }

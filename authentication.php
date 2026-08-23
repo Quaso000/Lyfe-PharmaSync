@@ -220,7 +220,7 @@
         case 'fetch_users':
             // Sorts by Role ID (Admin first), then alphabetically by First Name and Last Name
             $stmt = $pdo->prepare("
-                SELECT u.user_id, u.first_name, u.middle_initial, u.last_name, u.status, r.role_name, u.role_id 
+                SELECT u.user_id, u.first_name, u.middle_initial, u.last_name, u.status, u.last_login, r.role_name, u.role_id 
                 FROM users u 
                 JOIN roles r ON u.role_id = r.role_id 
                 ORDER BY u.role_id ASC, u.first_name ASC, u.last_name ASC
