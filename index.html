@@ -5,78 +5,114 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PharmaSync: AI-Integrated Management System</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 </head>
 <body>
-    <div id="auth-screen" class="overlay">
-        <div class="modal-box" style="width: 400px;">
-            <div style="text-align: center; margin-bottom: 20px;">
-                <h2 style="margin-bottom: 5px; border:none; color: var(--dark);">PharmaSync</h2>
-                <p style="color: #6c757d; font-size: 0.9rem;">Lyfe Pharmacy Management Portal</p>
+    <div id="auth-screen" class="portal-container">
+        
+        <!-- LEFT PANEL -->
+        <div class="left-panel">
+            <div>
+                <div class="logo-container">
+                    <div class="logo-icon"><i class="fa-solid fa-heart-pulse"></i></div>
+                    <span class="logo-text">PharmaSync</span>
+                </div>
+                <div class="badge"><span class="dot"></span> SYSTEM PORTAL</div>
             </div>
-            
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="right-panel">
             <div class="auth-tabs">
-                <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Login</div>
-                <div class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign Up</div>
+                <!-- Tabs bound to switchAuthTab() -->
+                <button id="tab-login" class="tab-btn active" onclick="switchAuthTab('login')">Login</button>
+                <button id="tab-signup" class="tab-btn" onclick="switchAuthTab('signup')">Sign Up</button>
             </div>
 
-            <!-- LOGIN FORM -->
-            <div id="form-login">
+            <!-- LOGIN SECTION -->
+            <div id="form-login" class="form-section">
+                <h2 class="form-heading">Welcome back</h2>
+                <p class="form-subheading">Enter your credentials to access your portal.</p>
                 <form onsubmit="handleLogin(event)">
                     <div class="form-group">
-                        <label>Username</label>
-                        <input type="text" id="login-user" value="" name="username">
-                    </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <input type="password" id="login-pwd" value="" name="password">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
-                            <label class="pwd-toggle" style="margin-top: 0;"><input type="checkbox" onchange="togglePassword('login-pwd')"> Show Password</label>
-                            <span style="font-size: 0.85rem; color: var(--primary); cursor: pointer; font-weight: bold;" onclick="showForgotPassword()">Forgot Password?</span>
+                        <label>USERNAME</label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-user input-icon"></i>
+                            <input type="text" id="login-user" placeholder="Enter your username" required>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1.05rem;">Secure Login</button>
-                </form>
-            </div>
-
-            
-
-            <!-- SIGN UP FORM -->
-            <div id="form-signup" class="hidden">
-                <p style="text-align:center; color:#666;">New staff accounts must be verified by the Owner.</p>
-                <form onsubmit="handleSignup(event)">
-                    <div class="form-group"><label>First Name</label><input type="text" id="signup-firstname"></div>
-                    <div class="form-group"><label>Middle Initial</label><input type="text" id="signup-middleInitial"></div>
-                    <div class="form-group"><label>Surname</label><input type="text" id="signup-surname"></div>
-                    <div class="form-group"><label>Email Address</label><input type="email" id="signup-email" placeholder="name@example.com"></div>
-                    <div class="form-group"><label>Phone Number</label><input type="text" id="signup-phoneNumber" placeholder="e.g. 09123456789"></div>
-                    <div class="form-group"><label>Username</label><input type="text" id="signup-username"></div>
                     <div class="form-group">
-                        <label>Create Password</label>
-                        <input type="password" id="signup-pwd">
-                        <label>Confirm Password</label>
-                        <input type="password" id="signup-confirm-pwd">
+                        <label>PASSWORD</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-lock input-icon"></i>
+                            <input type="password" id="login-pwd" placeholder="••••••••••••" required>
+                            <!-- Uses your old togglePassword() while swapping FontAwesome classes -->
+                            <i class="fa-regular fa-eye toggle-password" onclick="togglePassword('login-pwd'); this.classList.toggle('fa-eye'); this.classList.toggle('fa-eye-slash');"></i>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 14px; font-size: 1.05rem;">Request Access</button>
+                    
+                    <div class="forgot-password"><a href="#" onclick="showForgotPassword()">Forgot password?</a></div>
+                    
+                    <button type="submit" class="submit-btn btn-blue">Log In &rarr;</button>
                 </form>
             </div>
 
-            <!-- FORGOT PASSWORD FORM -->
-            <div id="form-forgot" class="hidden">
-                <h3 style="text-align: center; margin-bottom: 10px; color: var(--dark);">Reset Password</h3>
-                <p style="text-align:center; color:#666; font-size: 0.9rem; margin-bottom: 20px;">Enter your registered email address or username to receive a secure password reset link.</p>
+            <!-- SIGN UP SECTION -->
+            <div id="form-signup" class="form-section hidden">
+                <h2 class="form-heading">Create an Account</h2>
+                <p class="form-subheading">Register your profile to gain access.</p>
+                <form onsubmit="handleSignup(event)">
+                    <div class="form-row name-row">
+                        <div class="form-group flex-2"><label>FIRST NAME</label><input type="text" id="signup-firstname" placeholder="Jane" required></div>
+                        <div class="form-group flex-1"><label>M.I.</label><input type="text" id="signup-middleInitial" placeholder="A."></div>
+                        <div class="form-group flex-2"><label>SURNAME</label><input type="text" id="signup-surname" placeholder="Doe" required></div>
+                    </div>
+                    <div class="form-group"><label>EMAIL</label><div class="input-wrapper"><i class="fa-regular fa-envelope input-icon"></i><input type="email" id="signup-email" placeholder="jane.doe@example.com" required></div></div>
+                    <div class="form-group"><label>PHONE</label><div class="input-wrapper"><i class="fa-solid fa-phone input-icon"></i><input type="tel" id="signup-phoneNumber" placeholder="+63 912 345 6789" required></div></div>
+                    <div class="form-group"><label>USERNAME</label><div class="input-wrapper"><i class="fa-regular fa-user input-icon"></i><input type="text" id="signup-username" placeholder="Choose a username" required></div></div>
+                    
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label>PASSWORD</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-lock input-icon"></i>
+                                <input type="password" id="signup-pwd" placeholder="••••••••••••" required>
+                                <i class="fa-regular fa-eye toggle-password" onclick="togglePassword('signup-pwd'); this.classList.toggle('fa-eye'); this.classList.toggle('fa-eye-slash');"></i>
+                            </div>
+                        </div>
+                        <!-- Required confirm password field for handleSignup() validation -->
+                        <div class="form-group flex-1">
+                            <label>CONFIRM PASSWORD</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-lock input-icon"></i>
+                                <input type="password" id="signup-confirm-pwd" placeholder="••••••••••••" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="submit-btn btn-green">Request Access</button>
+                </form>
+            </div>
+
+            <!-- FORGOT PASSWORD SECTION -->
+            <div id="form-forgot" class="form-section hidden">
+                <h2 class="form-heading">Reset Password</h2>
+                <p class="form-subheading">Enter your email address to receive reset instructions.</p>
+                <!-- Removed default form submission to directly trigger your API function -->
                 <div class="form-group">
-                    <label>Email</label>
-                    <input type="text" id="forgot-identifier" placeholder="Enter account details...">
+                    <label>EMAIL / USERNAME</label>
+                    <div class="input-wrapper">
+                        <i class="fa-regular fa-envelope input-icon"></i>
+                        <input type="text" id="forgot-identifier" placeholder="Enter account details..." required>
+                    </div>
                 </div>
-                <button class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1.05rem; margin-top: 10px;" onclick="handleForgotPassword()">Send Reset Link</button>
-                <div style="text-align: center; margin-top: 20px;">
-                    <span style="font-size: 0.9rem; color: #666; cursor: pointer; text-decoration: underline;" onclick="switchAuthTab('login')">← Back to Login</span>
+                <button type="button" class="submit-btn btn-blue" onclick="handleForgotPassword()">Send Reset Link</button>
+                <div class="forgot-password" style="margin-top: 20px; text-align: center;">
+                    <a href="#" onclick="switchAuthTab('login')">&larr; Back to Sign In</a>
                 </div>
             </div>
 
-            <div id="form-forgot" class="hidden">
-                
-            </div>
         </div>
     </div>
 

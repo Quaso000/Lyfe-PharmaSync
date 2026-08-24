@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmaSync</title>
+    <link rel="stylesheet" href="style3.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<div class="portal-container">
+    
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+        <div>
+            <div class="logo-container"><div class="logo-icon"><i class="fa-solid fa-heart-pulse"></i></div><span class="logo-text">PharmaSync</span></div>
+            <div class="badge"><span class="dot"></span> SYSTEM PORTAL</div>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+        <div class="auth-tabs">
+            <button id="btn-signin" class="tab-btn active-blue" onclick="toggle('in')">Sign In</button>
+            <button id="btn-signup" class="tab-btn inactive" onclick="toggle('up')">Sign Up</button>
+        </div>
+
+        <!-- SIGN IN -->
+        <div id="signin-section" class="form-section">
+            <h2 class="form-heading">Welcome back</h2><p class="form-subheading">Enter your credentials to access your portal.</p>
+            <form id="signin-form">
+                <!-- Added "required" to these inputs -->
+                <div class="form-group"><label>USERNAME</label><div class="input-wrapper"><i class="fa-regular fa-user input-icon"></i><input type="text" placeholder="Enter your username" required></div></div>
+                <div class="form-group"><label>PASSWORD</label><div class="input-wrapper"><i class="fa-solid fa-lock input-icon"></i><input type="password" placeholder="••••••••••••" required><i class="fa-regular fa-eye toggle-password"></i></div></div>
+                
+                <div class="forgot-password"><a href="#" onclick="toggle('forgot')">Forgot password?</a></div>
+                
+                <button type="submit" class="submit-btn btn-blue">Log In &rarr;</button>
+            </form>
+        </div>
+
+        <!-- SIGN UP -->
+        <div id="signup-section" class="form-section" style="display: none;">
+            <h2 class="form-heading">Create an Account</h2><p class="form-subheading">Register your profile to gain access.</p>
+            <form id="signup-form">
+                <div class="form-row name-row">
+                    <!-- Added "required" to First Name and Surname -->
+                    <div class="form-group flex-2"><label>FIRST NAME</label><input type="text" placeholder="Jane" required></div>
+                    <div class="form-group flex-1"><label>M.I.</label><input type="text" placeholder="A."></div>
+                    <div class="form-group flex-2"><label>SURNAME</label><input type="text" placeholder="Doe" required></div>
+                </div>
+                <!-- Added "required" to the rest of the inputs -->
+                <div class="form-group"><label>EMAIL</label><div class="input-wrapper"><i class="fa-regular fa-envelope input-icon"></i><input type="email" placeholder="jane.doe@example.com" required></div></div>
+                <div class="form-group"><label>PHONE</label><div class="input-wrapper"><i class="fa-solid fa-phone input-icon"></i><input type="tel" placeholder="+63 912 345 6789" required></div></div>
+                <div class="form-group"><label>USERNAME</label><div class="input-wrapper"><i class="fa-regular fa-user input-icon"></i><input type="text" placeholder="Choose a username" required></div></div>
+                <div class="form-group"><label>PASSWORD</label><div class="input-wrapper"><i class="fa-solid fa-lock input-icon"></i><input type="password" placeholder="••••••••••••" required><i class="fa-regular fa-eye toggle-password"></i></div></div>
+                <button type="submit" class="submit-btn btn-green">Request Access</button>
+            </form>
+        </div>
+
+        <!-- FORGOT PASSWORD -->
+        <div id="forgot-section" class="form-section" style="display: none;">
+            <h2 class="form-heading">Reset Password</h2><p class="form-subheading">Enter your email address to receive reset instructions.</p>
+            <form id="forgot-form">
+                <div class="form-group"><label>EMAIL ADDRESS</label><div class="input-wrapper"><i class="fa-regular fa-envelope input-icon"></i><input type="email" placeholder="jane.doe@example.com" required></div></div>
+                <button type="submit" class="submit-btn btn-blue">Send Reset Link</button>
+                <div class="forgot-password" style="margin-top: 20px; text-align: center;">
+                    <a href="#" onclick="toggle('in')">&larr; Back to Sign In</a>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // 1. Screen Toggle Logic
+    function toggle(t) {
+        document.getElementById('signin-section').style.display = t === 'in' ? 'block' : 'none';
+        document.getElementById('signup-section').style.display = t === 'up' ? 'block' : 'none';
+        document.getElementById('forgot-section').style.display = t === 'forgot' ? 'block' : 'none';
+        
+        if(t === 'in' || t === 'up') {
+            document.getElementById('btn-signin').className = t === 'in' ? 'tab-btn active-blue' : 'tab-btn inactive';
+            document.getElementById('btn-signup').className = t === 'in' ? 'tab-btn inactive' : 'tab-btn active-green';
+        }
+    }
+
+    // 2. Eye Icon Password Toggle Logic
+    const toggleIcons = document.querySelectorAll('.toggle-password');
+    toggleIcons.forEach(icon => {
+        icon.addEventListener('click', function() {
+            const inputField = this.previousElementSibling;
+            if (inputField.type === 'password') {
+                inputField.type = 'text';
+                this.classList.remove('fa-eye');
+                this.classList.add('fa-eye-slash'); 
+            } else {
+                inputField.type = 'password';
+                this.classList.remove('fa-eye-slash');
+                this.classList.add('fa-eye'); 
+            }
+        });
+    });
+
+    // 3. Form Submission Alerts (Only trigger if all required fields are filled)
+    document.getElementById('signup-form').addEventListener('submit', function(e) {
+        e.preventDefault(); // Prevents the page from reloading
+        alert('Success! Your access request has been submitted.');
+    });
+    
+    document.getElementById('signin-form').addEventListener('submit', function(e) {
+        e.preventDefault(); 
+        alert('Successfully Logged In!');
+    });
+    
+    document.getElementById('forgot-form').addEventListener('submit', function(e) {
+        e.preventDefault(); 
+        alert('A reset link has been sent to your email.');
+    });
+</script>
+</body>
+</html>
