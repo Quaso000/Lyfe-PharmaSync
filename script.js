@@ -1,5 +1,29 @@
 document.getElementById('current-date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
+let heartbeatInterval;
+
+// Run this the moment the page loads
+window.onload = async function() {
+    const res = await fetch('authentication.php?action=check_session');
+    const data = await res.json();
+    
+    if (data.success) {
+        // Skip the login screen entirely!
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-sidebar').style.display = 'flex';
+        
+        startHeartbeat();
+    }
+};
+
+function startHeartbeat() {
+    heartbeatInterval = setInterval(() => {
+        const fd = new FormData();
+        fd.append('action', 'heartbeat');
+        fetch('authentication.php', { method: 'POST', body: fd });
+    }, 60000); // Send a signal every 1 minute
+}
+
 // ========= LOGIN AUTHENTICATION IS DONE ========
 async function handleLogin(event) {
     if (event) {

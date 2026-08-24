@@ -12,13 +12,25 @@
     font-family: 'Segoe UI', system-ui, sans-serif; 
 }
     
+#auth-screen {
+    /* Because the body is a flex container, 'margin: auto' automatically 
+       centers this box both vertically and horizontally. */
+    margin: auto; 
+    
+    /* Replaces the 20px body padding from the new design so the 
+       portal doesn't touch the sides of smaller screens */
+    width: calc(100% - 40px); 
+    max-width: 1200px;
+}
+
 body { 
-    background-color: #f4f7f6;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 20px;
+
+    background-color: #e9ecef; 
+    color: var(--text-main); 
+    height: 100vh; 
+    display: flex; 
+    overflow: hidden; 
+    margin: 0;
 }
 
 /* --- Left Panel Styling --- */

@@ -1,4 +1,6 @@
 <?php
+    session_start();
+
     header('Content-Type: application/json');
 
     $host = 'localhost';  // to be replace by proper hosting sites
@@ -75,7 +77,8 @@
                 exit;
             }
 
-            $updateSession = $pdo->prepare("UPDATE users SET status = 'Online', last_login = NOW() WHERE user_id = ?");
+            $_SESSION['user_id'] = $userRecord['user_id']; 
+            $updateSession = $pdo->prepare("UPDATE users SET status = 'Online', last_login = NOW(), last_active = NOW() WHERE user_id = ?");
             $updateSession->execute([$userRecord['user_id']]);
 
             echo json_encode([
@@ -217,10 +220,30 @@
 
         break;
 
+        case 'heartbeat':
+            // The browser pings this in the background
+            if (isset($_SESSION['user_id'])) {
+                $pdo->prepare("UPDATE users SET last_active = NOW() WHERE user_id = ?")->execute([$_SESSION['user_id']]);
+                echo json_encode(["success" => true]);
+            }
+        break;
+
+        case 'check_session':
+            // Automatically check if they are already logged in
+            if (isset($_SESSION['user_id'])) {
+                echo json_encode(["success" => true, "id" => $_SESSION['user_id']]);
+            } else {
+                echo json_encode(["success" => false]);
+            }
+        break;
+
         case 'fetch_users':
             // Sorts by Role ID (Admin first), then alphabetically by First Name and Last Name
             $stmt = $pdo->prepare("
-                SELECT u.user_id, u.first_name, u.middle_initial, u.last_name, u.status, u.last_login, r.role_name, u.role_id 
+                SELECT u.user_id, u.first_name, u.middle_initial, u.last_name, u.last_login, r.role_name, u.role_id,
+                       IF(u.status = 'Pending', 'Pending', 
+                          IF(u.last_active >= NOW() - INTERVAL 2 MINUTE, 'Online', 'Offline')
+                       ) AS status 
                 FROM users u 
                 JOIN roles r ON u.role_id = r.role_id 
                 ORDER BY u.role_id ASC, u.first_name ASC, u.last_name ASC
