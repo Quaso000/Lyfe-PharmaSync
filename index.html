@@ -35,14 +35,14 @@
                 <h2 class="form-heading">Welcome back</h2>
                 <p class="form-subheading">Enter your credentials to access your portal.</p>
                 <form onsubmit="handleLogin(event)">
-                    <div class="form-group">
+                    <div class="form-group-auth">
                         <label>USERNAME</label>
                         <div class="input-wrapper">
                             <i class="fa-regular fa-user input-icon"></i>
                             <input type="text" id="login-user" placeholder="Enter your username" required>
                         </div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group-auth">
                         <label>PASSWORD</label>
                         <div class="input-wrapper">
                             <i class="fa-solid fa-lock input-icon"></i>
@@ -70,10 +70,10 @@
                     </div>
                     <div class="form-group"><label>EMAIL</label><div class="input-wrapper"><i class="fa-regular fa-envelope input-icon"></i><input type="email" id="signup-email" placeholder="jane.doe@example.com" required></div></div>
                     <div class="form-group"><label>PHONE</label><div class="input-wrapper"><i class="fa-solid fa-phone input-icon"></i><input type="tel" id="signup-phoneNumber" placeholder="+63 912 345 6789" required></div></div>
-                    <div class="form-group"><label>USERNAME</label><div class="input-wrapper"><i class="fa-regular fa-user input-icon"></i><input type="text" id="signup-username" placeholder="Choose a username" required></div></div>
+                    <div class="form-group-auth"><label>USERNAME</label><div class="input-wrapper"><i class="fa-regular fa-user input-icon"></i><input type="text" id="signup-username" placeholder="Choose a username" required></div></div>
                     
                     <div class="form-row">
-                        <div class="form-group flex-1">
+                        <div class="form-group-auth flex-1">
                             <label>PASSWORD</label>
                             <div class="input-wrapper">
                                 <i class="fa-solid fa-lock input-icon"></i>
@@ -100,7 +100,7 @@
                 <h2 class="form-heading">Reset Password</h2>
                 <p class="form-subheading">Enter your email address to receive reset instructions.</p>
                 <!-- Removed default form submission to directly trigger your API function -->
-                <div class="form-group">
+                <div class="form-group-auth">
                     <label>EMAIL / USERNAME</label>
                     <div class="input-wrapper">
                         <i class="fa-regular fa-envelope input-icon"></i>
@@ -232,15 +232,15 @@
                     <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">Update your login password securely. You must verify your current password to proceed.</p>
                     
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: end;">
-                        <div class="form-group" style="margin-bottom: 0;">
+                        <div class="form-group-userpassword" style="margin-bottom: 0;">
                             <label>Current Password</label>
                             <input type="password" id="cp-current" placeholder="Enter current password">
                         </div>
-                        <div class="form-group" style="margin-bottom: 0;">
+                        <div class="form-group-userpassword" style="margin-bottom: 0;">
                             <label>New Password</label>
                             <input type="password" id="cp-new" placeholder="Enter new password">
                         </div>
-                        <div class="form-group" style="margin-bottom: 0;">
+                        <div class="form-group-userpassword" style="margin-bottom: 0;">
                             <label>Confirm New Password</label>
                             <input type="password" id="cp-confirm" placeholder="Confirm new password">
                         </div>
@@ -251,14 +251,15 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Employee (Username)</th>
+                            <th>Employee Name</th>
                             <th>Role Authorization</th>
                             <th>Account Status</th>
                             <th>Last Login</th>
+                            <th id="admin-action-header" style="display: none;">Manage</th>
                         </tr>
                     </thead>
                     <tbody id="users-tbody">
-                        <tr><td colspan="4" style="text-align:center; color:#888;">Loading users...</td></tr>
+                        <tr><td colspan="5" style="text-align:center; color:#888;">Loading users...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -343,10 +344,10 @@
                 </div>
                 
                 <div class="filter-bar">
-                    <div class="form-group" style="flex: 2;">
+                    <div class="w" style="flex: 2;">
                         <input type="text" id="inv-search" style="font-size: 1rem;" placeholder="🔍 Search inventory..." onkeyup="refreshUI()">
                     </div>
-                    <div class="form-group" style="flex: 1;">
+                    <div class="form-group-searchbar" style="flex: 1;">
                         <select id="inv-filter" onchange="refreshUI()">
                             <option value="all">Filter By Category: All Items</option>
                             <option value="rx">Requires Prescription (Rx)</option>
@@ -400,7 +401,7 @@
                     <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">Receive automated text alerts for expiring inventory and critical stock levels tailored to your account.</p>
                     
                     <div id="sms-input-area" style="display: flex; gap: 10px; align-items: flex-end;">
-                        <div class="form-group" style="margin-bottom: 0; flex: 1;">
+                        <div class="form-group-expiryalert" style="margin-bottom: 0; flex: 1;">
                             <label>Contact Number</label>
                             <input type="text" id="user-phone" placeholder="e.g. 09171234567">
                         </div>

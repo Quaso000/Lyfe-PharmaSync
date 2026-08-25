@@ -42,3 +42,7 @@ steps for the solution:
 3. after confirming, user can now change password (with confirm new password) NO MORE confirmation from admin due to the logic of managing one's own account.
 0. last resort need magdagdag ng feature sa admin user control to change the pass for other accounts however need to add change password on the user control of every user.
 
+
+
+change username, edit profile info ui page?
+upgrading or promoting an account into admin using the admin account.

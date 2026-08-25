@@ -423,29 +423,48 @@ input::placeholder {
 
 
 /* Form Elements */ 
-.form-group { 
-    margin-bottom: 15px; 
+.form-group, 
+.form-group-auth { 
+    margin-bottom: 20px; 
 }
-    
-.form-group label { 
+
+/* Restores the original modern styling for labels */
+.form-group label,
+.form-group-auth label,
+.form-group-expiryalert label,
+.form-group-userpassword label { 
     display: block; 
-    margin-bottom: 5px; 
-    font-weight: bold; 
-    font-size: 0.9rem; 
-    color: #555; 
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 8px; 
+    letter-spacing: 0.5px;
 }
-    
-.form-group input[type="text"], 
-.form-group input[type="password"], 
-.form-group input[type="number"], 
-.form-group input[type="date"], 
-.form-group input[type="email"], 
+
+/* 1. Base style for ALL inputs (clean borders, uniform height) */
+.form-group input,
+.form-group-auth input,
+.form-group-userpassword input,
+.form-group-expiryalert input,
+form-group-searchbar input,
 .form-group select { 
     width: 100%; 
-    padding: 10px; 
+    padding: 12px 15px; 
+    border: 1px solid #cbd5e1; 
+    border-radius: 8px; 
+    font-size: 14px;
+    color: #334155;
+    outline: none;
+}
+
+/* 2. Left padding ONLY for inputs that share space with an icon */
+.input-wrapper input {
     padding-left: 42px;
-    border: 1px solid var(--border); 
-    border-radius: 4px; 
+}
+
+/* 3. Right padding ONLY for passwords so text doesn't overlap the eye icon */
+.input-wrapper input[type="password"] {
+    padding-right: 40px;
 }
     
 /* .pwd-toggle { 

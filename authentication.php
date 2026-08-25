@@ -221,40 +221,61 @@
         break;
 
         case 'heartbeat':
-            // The browser pings this in the background
             if (isset($_SESSION['user_id'])) {
-                $pdo->prepare("UPDATE users SET last_active = NOW() WHERE user_id = ?")->execute([$_SESSION['user_id']]);
+                // Keep the timestamp fresh AND ensure their database status is set to Online
+                $pdo->prepare("UPDATE users SET last_active = NOW(), status = 'Online' WHERE user_id = ?")->execute([$_SESSION['user_id']]);
                 echo json_encode(["success" => true]);
             }
         break;
 
-        case 'check_session':
-            // Automatically check if they are already logged in
-            if (isset($_SESSION['user_id'])) {
-                echo json_encode(["success" => true, "id" => $_SESSION['user_id']]);
-            } else {
-                echo json_encode(["success" => false]);
+        case 'tab_closed':
+            $userId = $_POST['user_id'] ?? ($_SESSION['user_id'] ?? null);
+            if ($userId) {
+                // Anti-Race Condition: Only set Offline if the last active ping wasn't within the last 5 seconds
+                $pdo->prepare("UPDATE users SET status = 'Offline' WHERE user_id = ? AND last_active < NOW() - INTERVAL 5 SECOND")->execute([$userId]);
             }
         break;
 
+        case 'check_session':
+            if (isset($_SESSION['user_id'])) {
+                $stmt = $pdo->prepare("SELECT u.first_name, u.last_name, r.role_name FROM users u JOIN roles r ON u.role_id = r.role_id WHERE u.user_id = ?");
+                $stmt->execute([$_SESSION['user_id']]);
+                $user = $stmt->fetch();
+
+                if ($user) {
+                    // NEW: Instantly reactivate them to 'Online' if they just did a Ctrl+R reload
+                    $pdo->prepare("UPDATE users SET status = 'Online', last_active = NOW() WHERE user_id = ?")->execute([$_SESSION['user_id']]);
+
+                    echo json_encode([
+                        "success" => true, 
+                        "id" => $_SESSION['user_id'],
+                        "name" => trim($user['first_name'] . ' ' . $user['last_name']),
+                        "role" => $user['role_name']
+                    ]);
+                    exit;
+                }
+            }
+            
+            echo json_encode(["success" => false]);
+        break;
+
         case 'fetch_users':
-            // Sorts by Role ID (Admin first), then alphabetically by First Name and Last Name
+            // Prioritizes explicit Pending/Offline statuses, then calculates the 20-min Idle window
             $stmt = $pdo->prepare("
                 SELECT u.user_id, u.first_name, u.middle_initial, u.last_name, u.last_login, r.role_name, u.role_id,
                        IF(u.status = 'Pending', 'Pending', 
-                          IF(u.last_active >= NOW() - INTERVAL 2 MINUTE, 'Online', 'Offline')
+                          IF(u.status = 'Offline', 'Offline', 
+                             IF(u.last_active >= NOW() - INTERVAL 20 MINUTE, 'Online', 'Idle')
+                          )
                        ) AS status 
                 FROM users u 
                 JOIN roles r ON u.role_id = r.role_id 
                 ORDER BY u.role_id ASC, u.first_name ASC, u.last_name ASC
             ");
             $stmt->execute();
-            $users = $stmt->fetchAll();
+            $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            echo json_encode([
-                "success" => true, 
-                "users" => $users
-            ]);
+            echo json_encode(["success" => true, "users" => $users]);
         break;
 
         case 'update_user_access':
@@ -285,17 +306,57 @@
             }
         break;
 
-        case 'logout':
-            $userId = $_POST['user_id'] ?? '';
+        case 'approve_user':
+            $targetId = $_POST['target_id'] ?? '';
             
-            if(!empty($userId)) {
-                // Instantly targets the exact row using the Primary Key
-                $logoutStmt = $pdo->prepare("UPDATE users SET status = 'Offline' WHERE user_id = ?");
-                $logoutStmt->execute([$userId]);
+            if ($targetId) {
+                // Change status from Pending to Offline
+                $pdo->prepare("UPDATE users SET status = 'Offline' WHERE user_id = ?")->execute([$targetId]);
+                echo json_encode(["success" => true]);
+            } else {
+                echo json_encode(["success" => false, "message" => "No user ID provided."]);
             }
-            
-            echo json_encode(["success" => true]);
         break;
+
+        case 'logout':
+            // Explicit log out sets them Offline AND destroys the persistent session
+            $userId = $_POST['user_id'] ?? ($_SESSION['user_id'] ?? null);
+            if(!empty($userId)) {
+                $pdo->prepare("UPDATE users SET status = 'Offline' WHERE user_id = ?")->execute([$userId]);
+            }
+            session_destroy(); 
+            echo json_encode(["success" => true]);
+            break;
+
+        case 'update_password':
+            // 1. Ensure they are actually logged in
+            if (!isset($_SESSION['user_id'])) {
+                echo json_encode(["success" => false, "message" => "Unauthorized session."]);
+                exit;
+            }
+
+            $currentPwd = $_POST['current_password'] ?? '';
+            $newPwd = $_POST['new_password'] ?? '';
+
+            // 2. Fetch their current password from the database
+            $stmt = $pdo->prepare("SELECT password FROM users WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $user = $stmt->fetch();
+
+            // 3. Verify the old password matches
+            if ($user['password'] !== $currentPwd) {
+                echo json_encode(["success" => false, "message" => "Incorrect current password."]);
+                exit;
+            }
+
+            // 4. Save the new password
+            $update = $pdo->prepare("UPDATE users SET password = ? WHERE user_id = ?");
+            if ($update->execute([$newPwd, $_SESSION['user_id']])) {
+                echo json_encode(["success" => true]);
+            } else {
+                echo json_encode(["success" => false, "message" => "Database error."]);
+            }
+            break;
 
         default:
             echo json_encode([

@@ -2,26 +2,86 @@ document.getElementById('current-date').innerText = new Date().toLocaleDateStrin
 
 let heartbeatInterval;
 
-// Run this the moment the page loads
+// Your actual global variables
+let currentUserRole = "";
+let currentUserName = "";
+let currentUserId = "";
+
+// Dummy variables to prevent UI crash during testing
+let db = [];
+let cart = [];
+let salesHistory = [];
+let inventoryHistory = [];
+let dismissedAlerts = [];
+let totalRevenue = 0;
+let revenueChartInst = null;
+let financialHealthChartInst = null;
+
+//   =============== WORKING FINE ===========
 window.onload = async function() {
-    const res = await fetch('authentication.php?action=check_session');
-    const data = await res.json();
-    
-    if (data.success) {
-        // Skip the login screen entirely!
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('app-sidebar').style.display = 'flex';
+    const fd = new FormData();
+    fd.append('action', 'check_session');
+
+    try {
+        const res = await fetch('authentication.php', { method: 'POST', body: fd });
+        const data = await res.json();
         
-        startHeartbeat();
+        if (data.success) {
+            // Restore Global Variables so the rest of the JS doesn't crash!
+            currentUserRole = data.role;
+            currentUserName = data.name;
+            currentUserId = data.id;
+
+            // Restore UI details
+            document.getElementById('user-role-display').innerText = data.role;
+            document.getElementById('user-name-display').innerText = data.name;
+            document.getElementById('user-name-display').setAttribute('data-userid', data.id);
+
+            // Re-filter the sidebar modules based on role
+            document.querySelectorAll('.module-link').forEach(btn => {
+                const allowedRoles = btn.getAttribute('data-roles').split(',');
+                if (allowedRoles.includes(currentUserRole)) {
+                    btn.style.display = 'block';
+                } else {
+                    btn.style.display = 'none';
+                }
+            });
+
+            // Bypass Login
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-sidebar').style.display = 'flex';
+            document.getElementById('app-content').style.display = 'flex';
+            
+            startHeartbeat(); 
+            switchModule('dashboard');
+            initCharts();
+            refreshUI();
+        }
+    } catch (error) {
+        console.error("Session check failed.", error);
     }
 };
 
+//   =============== WORKING FINE ===========
+window.addEventListener('pagehide', function() {
+    const userId = document.getElementById('user-name-display').getAttribute('data-userid');
+    
+    if (userId) {
+        const fd = new FormData();
+        fd.append('action', 'tab_closed');
+        fd.append('user_id', userId); 
+        
+        navigator.sendBeacon('authentication.php', fd);
+    }
+});
+
+//   =============== WORKING FINE ===========
 function startHeartbeat() {
     heartbeatInterval = setInterval(() => {
         const fd = new FormData();
         fd.append('action', 'heartbeat');
         fetch('authentication.php', { method: 'POST', body: fd });
-    }, 60000); // Send a signal every 1 minute
+    }, 60000); 
 }
 
 // ========= LOGIN AUTHENTICATION IS DONE ========
@@ -232,38 +292,83 @@ function switchModule(modId) {
 }
 
 //   =============== WORKING FINE ===========
+async function approveUser(userId) {
+    if (!confirm("Are you sure you want to approve this account and grant system access?")) {
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append('action', 'approve_user');
+    fd.append('target_id', userId);
+
+    try {
+        const response = await fetch('authentication.php', { method: 'POST', body: fd });
+        const data = await response.json();
+
+        if (data.success) {
+            alert("Account successfully approved. The employee can now log in.");
+            fetchUsersList(); // Instantly refresh the table to show the new 'Offline' status
+        } else {
+            alert("Error: " + data.message);
+        }
+    } catch (error) {
+        console.error("Approval error: ", error);
+        alert("A connection error occurred while trying to approve the account.");
+    }
+}
+
+//   =============== WORKING FINE ===========
 async function fetchUsersList() {
     const toBeSend = new FormData();
     toBeSend.append('action', 'fetch_users');
     
     try {
-        const response = await fetch('authentication.php', { 
-            method: 'POST', 
-            body: toBeSend 
-        });
+        const response = await fetch('authentication.php', { method: 'POST', body: toBeSend });
         const data = await response.json();
         
         if (data.success) {
             const tbody = document.getElementById('users-tbody');
+            const actionHeader = document.getElementById('admin-action-header');
+            
+            // Show the "Manage" column header ONLY for the Owner
+            if (currentUserRole === 'Owner') {
+                actionHeader.style.display = 'table-cell';
+            } else {
+                actionHeader.style.display = 'none';
+            }
             
             tbody.innerHTML = data.users.map(user => {
-                // Safely format the middle initial (adds a dot and space if it exists)
                 let mi = user.middle_initial ? `${user.middle_initial}. ` : '';
                 let fullName = `${user.first_name} ${mi}${user.last_name}`;
                 
-                // Set CSS colors based on their current status
-                let statusColor = user.status === 'Online' ? 'var(--secondary)' : (user.status === 'Pending' ? 'var(--warning)' : '#6c757d');
+                let statusColor;
+                if (user.status === 'Online') statusColor = '#28a745'; 
+                else if (user.status === 'Idle') statusColor = '#ffc107'; 
+                else if (user.status === 'Pending') statusColor = '#fd7e14'; 
+                else statusColor = '#6c757d'; 
                 
-                // Assign a badge color based on their role
-                let roleBadge = (user.role_name === "Admin" || user.role_name === "Owner") ? `<span class="badge badge-success">${user.role_name}</span>` : `<span class="badge badge-warning">${user.role_name}</span>`;
+                let roleBadge = (user.role_name === "Owner")
+                                ? `<span class="badge badge-success">${user.role_name}</span>` 
+                                : `<span class="badge badge-warning">${user.role_name}</span>`;
 
-                // Grab the timestamp from the DB, or show a fallback message
                 let lastLoginDisplay = user.last_login ? user.last_login : '<i style="color:#aaa;">Never logged in</i>';
+
+                // Render Action Button Logic
+                let actionCell = '';
+                if (currentUserRole === 'Owner') {
+                    if (user.status === 'Pending') {
+                        actionCell = `<td><button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="approveUser(${user.user_id})">Approve Access</button></td>`;
+                    } else {
+                        actionCell = `<td><span style="color:#aaa; font-size:0.85rem;">Approved</span></td>`;
+                    }
+                }
+
                 return `<tr>
                     <td><strong>${fullName}</strong></td>
                     <td>${roleBadge}</td>
                     <td><span style="color: ${statusColor}; font-weight: bold;">● ${user.status}</span></td>
                     <td style="font-size: 0.85rem; color: #555;">${lastLoginDisplay}</td>
+                    ${actionCell}
                 </tr>`;
             }).join('');
         }
@@ -272,6 +377,48 @@ async function fetchUsersList() {
     }
 }
 
+//   =============== WORKING FINE ===========
+async function updatePassword() {
+    const currentInput = document.getElementById('cp-current').value;
+    const newInput = document.getElementById('cp-new').value;
+    const confirmInput = document.getElementById('cp-confirm').value;
+
+    if (!currentInput || !newInput || !confirmInput) {
+        return alert("Please fill in all password fields.");
+    }
+
+    if (newInput !== confirmInput) {
+        return alert("Validation Failed: New passwords do not match.");
+    }
+
+    if (newInput === currentInput) {
+        return alert("Error: New password cannot be the same as your old password.");
+    }
+
+    const fd = new FormData();
+    fd.append('action', 'update_password');
+    fd.append('current_password', currentInput);
+    fd.append('new_password', newInput);
+
+    try {
+        const response = await fetch('authentication.php', { method: 'POST', body: fd });
+        const data = await response.json();
+
+        if (!data.success) {
+            return alert("Validation Failed: " + data.message);
+        }
+
+        // Clear the fields on success
+        document.getElementById('cp-current').value = '';
+        document.getElementById('cp-new').value = '';
+        document.getElementById('cp-confirm').value = '';
+
+        alert("Success! Your password has been updated securely.");
+    } catch (error) {
+        console.error("Password update error: ", error);
+        alert("A connection error occurred with the server.");
+    }
+}
 
 async function handleForgotPassword() {
     const identifier = document.getElementById('forgot-identifier').value.trim();
@@ -310,43 +457,6 @@ function closeModal(id) {
 }
 
 
-
-
-
-
-
-
-function updatePassword() {
-    const currentInput = document.getElementById('cp-current').value;
-    const newInput = document.getElementById('cp-new').value;
-    const confirmInput = document.getElementById('cp-confirm').value;
-
-    let user = usersDb.find(u => u.id === currentUserId);
-
-    if (!currentInput || !newInput || !confirmInput) {
-        return alert("Please fill in all password fields.");
-    }
-
-    if (currentInput !== user.password) {
-        return alert("Validation Failed: Incorrect current password.");
-    }
-
-    if (newInput !== confirmInput) {
-        return alert("Validation Failed: New passwords do not match.");
-    }
-
-    if (newInput === currentInput) {
-        return alert("Error: New password cannot be the same as your old password.");
-    }
-
-    user.password = newInput;
-
-    document.getElementById('cp-current').value = '';
-    document.getElementById('cp-new').value = '';
-    document.getElementById('cp-confirm').value = '';
-
-    alert("Success! Your password has been updated securely.");
-}
 
 function renderSmsSettings() {
     let user = usersDb.find(u => u.id === currentUserId);
@@ -811,163 +921,151 @@ function processCSVImport(event) {
 }
 
 function refreshUI() {
-document.getElementById('dash-sales').innerText = `₱ ${totalRevenue.toFixed(2)}`;
-document.getElementById('dash-stock').innerText = db.length;
+    document.getElementById('dash-sales').innerText = `₱ ${totalRevenue.toFixed(2)}`;
+    document.getElementById('dash-stock').innerText = db.length;
 
-let alertCount = 0;
-const alertsHtml = db.map(item => {
-    let alertBlock = '';
-    
-    if(item.stock <= 20) { 
-        alertCount++; 
-        alertBlock += `<div style="padding:15px; background:#fff3cd; color:#856404; margin-bottom:10px; border-radius:6px; border-left:5px solid var(--warning);"><strong>Critical Stock Alert:</strong> ${item.name} (${item.stock} remaining in batch ${item.batch})</div>`; 
-    }
-    
-    if(item.expiry.startsWith("2026") && !dismissedAlerts.includes(item.batch)) { 
-        alertCount++; 
-        let dismissBtn = `<button class="btn btn-secondary" style="margin-top:10px; padding: 6px 12px; font-size: 0.8rem;" onclick="dismissAlert('${item.batch}')">Okay (Remove Alert)</button>`;
-        alertBlock += `<div style="padding:15px; background:#f8d7da; color:#721c24; margin-bottom:10px; border-radius:6px; border-left:5px solid var(--danger);"><strong>Impending Expiry:</strong> ${item.name} (Batch ${item.batch}) expires on ${item.expiry}. Please monitor shelf life.<br>${dismissBtn}</div>`; 
-    }
-    
-    return alertBlock;
-}).join('');
-
-document.getElementById('alerts-container').innerHTML = alertsHtml || '<p style="color:#888;">No active alerts at this time.</p>';
-document.getElementById('dash-alerts-count').innerText = alertCount;
-
-if (document.getElementById('inventory-tbody')) {
-    const invSearch = document.getElementById('inv-search') ? document.getElementById('inv-search').value.toLowerCase() : '';
-    const invFilter = document.getElementById('inv-filter') ? document.getElementById('inv-filter').value : 'all';
-    
-    const filteredInvDb = db.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(invSearch) || item.batch.toLowerCase().includes(invSearch);
-        const matchesFilter = (invFilter === 'all') || 
-                                (invFilter === 'rx' && item.rxRequired === true) || 
-                                (invFilter === 'otc' && item.rxRequired === false);
-        return matchesSearch && matchesFilter;
-    });
-
-    document.getElementById('inventory-tbody').innerHTML = filteredInvDb.map(item => {
-        let badge = item.stock <= 20 ? `<span class="badge badge-warning">Low Stock</span>` : (item.expiry.startsWith("2026") ? `<span class="badge badge-danger">Expiring</span>` : `<span class="badge badge-success">Optimal</span>`);
-        let rxIndicator = item.rxRequired ? `<span style="color: var(--danger); font-weight: bold; font-size: 0.8rem; margin-left: 5px;">[Rx]</span>` : '';
-        return `<tr><td><strong>${item.batch}</strong></td><td>${item.name} ${rxIndicator}</td><td>${item.stock}</td><td>₱${item.price.toFixed(2)}</td><td>${item.expiry}</td><td>${badge}</td>
-        <td><button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="openInventoryModal(${item.id})">Update</button></td></tr>`;
-    }).join('');
-}
-
-if (document.getElementById('pos-grid')) {
-    const posSearch = document.getElementById('pos-search') ? document.getElementById('pos-search').value.toLowerCase() : '';
-    const posFilter = document.getElementById('pos-filter') ? document.getElementById('pos-filter').value : 'all';
-    
-    const filteredPosDb = db.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(posSearch);
-        const matchesFilter = (posFilter === 'all') || 
-                                (posFilter === 'rx' && item.rxRequired === true) || 
-                                (posFilter === 'otc' && item.rxRequired === false);
-        return matchesSearch && matchesFilter;
-    });
-    
-    document.getElementById('pos-grid').innerHTML = filteredPosDb.map(item => {
-        let rxBadge = item.rxRequired ? `<span style="font-size:0.7rem; background:var(--danger); color:white; padding:2px 6px; border-radius:4px; margin-top:5px; display:inline-block;">Rx Required</span>` : '';
-        return `<div class="pos-item-btn" onclick="addToCart(${item.id})">
-                    <div>
-                        <span style="font-weight:600; color:var(--dark); font-size:0.95rem; display:block;">${item.name}</span>
-                        ${rxBadge}
-                    </div>
-                    <div style="margin-top:auto;">
-                        <span style="display:block; font-size:1.4rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">₱${item.price.toFixed(2)}</span>
-                        <span style="font-size:0.8rem; color:#888; background:#f1f3f5; padding:3px 8px; border-radius:12px;">Stock: ${item.stock}</span>
-                    </div>
-                </div>`;
-    }).join('');
-    
-    let cartTotal = 0;
-    document.getElementById('cart-list').innerHTML = cart.map((item, index) => { 
-        cartTotal += item.price; 
-        let itemRxIcon = item.rxRequired ? `<span style="color:var(--danger); font-size:0.75rem; font-weight:bold;">[Rx]</span>` : '';
-        return `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px dashed var(--border); padding-bottom:5px;">
-                    <div style="flex:1;">
-                        <span style="display:block; font-size:0.9rem;">${item.name} ${itemRxIcon}</span>
-                        <span style="font-weight:bold; color:var(--dark);">₱${item.price.toFixed(2)}</span>
-                    </div>
-                    <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem; height: 30px; border-radius:4px;" onclick="removeFromCart(${index})">✕</button>
-                </div>`; 
-    }).join('');
-    document.getElementById('cart-subtotal').innerText = cartTotal.toFixed(2);
-    document.getElementById('cart-total').innerText = cartTotal.toFixed(2);
-    
-    updateRecommendations(); // Triggers the new recommendation widget
-}
-
-// NEW: Added AI logic to compute discounts inside the Expiry Mitigation Protocol
-const expiringItems = db.filter(item => item.expiry.startsWith("2026"));
-const spHtml = expiringItems.map(item => {
-    let today = new Date();
-    let expDate = new Date(item.expiry);
-    let diffTime = Math.abs(expDate - today);
-    let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    let suggestedDiscount = 10;
-    if (diffDays <= 30 && item.stock > 50) suggestedDiscount = 50;
-    else if (diffDays <= 30 && item.stock <= 50) suggestedDiscount = 30;
-    else if (diffDays <= 90 && item.stock > 100) suggestedDiscount = 25;
-    else if (diffDays <= 90) suggestedDiscount = 15;
-
-    return `
-    <div class="card" style="border-top-color: var(--warning);">
-        <h3>Expiry Mitigation Protocol</h3>
-        <p style="margin-top: 15px; font-size: 0.95rem; line-height: 1.6; color: #555;"><strong>Flagged SKU:</strong> ${item.name} (${item.batch})<br><strong>Status:</strong> Impending expiration on ${item.expiry}.</p>
+    let alertCount = 0;
+    const alertsHtml = db.map(item => {
+        let alertBlock = '';
         
-        <div style="background: #e8f4f8; border-left: 4px solid #17a2b8; padding: 12px; border-radius: 4px; margin-top: 15px;">
-            <strong style="color: #0c5460; font-size: 0.9rem;">🤖 AI Analysis:</strong>
-            <p style="font-size: 0.85rem; color: #0c5460; margin-top: 5px; line-height: 1.4;">Remaining shelf life is <strong>${diffDays} days</strong> with <strong>${item.stock} units</strong> in stock. To optimize sell-through rate before expiration, the system suggests a <strong>${suggestedDiscount}% discount</strong>.</p>
-            <button class="btn btn-outline" style="margin-top: 8px; padding: 4px 10px; font-size: 0.8rem; border-color: #17a2b8; color: #17a2b8;" onclick="document.getElementById('discount-slider-${item.id}').value = ${suggestedDiscount}; updatePricePreview(${item.id}, ${item.price});">Apply ${suggestedDiscount}% Suggestion</button>
+        if(item.stock <= 20) { 
+            alertCount++; 
+            alertBlock += `<div style="padding:15px; background:#fff3cd; color:#856404; margin-bottom:10px; border-radius:6px; border-left:5px solid var(--warning);"><strong>Critical Stock Alert:</strong> ${item.name} (${item.stock} remaining in batch ${item.batch})</div>`; 
+        }
+        
+        if(item.expiry.startsWith("2026") && !dismissedAlerts.includes(item.batch)) { 
+            alertCount++; 
+            let dismissBtn = `<button class="btn btn-secondary" style="margin-top:10px; padding: 6px 12px; font-size: 0.8rem;" onclick="dismissAlert('${item.batch}')">Okay (Remove Alert)</button>`;
+            alertBlock += `<div style="padding:15px; background:#f8d7da; color:#721c24; margin-bottom:10px; border-radius:6px; border-left:5px solid var(--danger);"><strong>Impending Expiry:</strong> ${item.name} (Batch ${item.batch}) expires on ${item.expiry}. Please monitor shelf life.<br>${dismissBtn}</div>`; 
+        }
+        
+        return alertBlock;
+    }).join('');
+
+    document.getElementById('alerts-container').innerHTML = alertsHtml || '<p style="color:#888;">No active alerts at this time.</p>';
+    document.getElementById('dash-alerts-count').innerText = alertCount;
+
+    if (document.getElementById('inventory-tbody')) {
+        const invSearch = document.getElementById('inv-search') ? document.getElementById('inv-search').value.toLowerCase() : '';
+        const invFilter = document.getElementById('inv-filter') ? document.getElementById('inv-filter').value : 'all';
+        
+        const filteredInvDb = db.filter(item => {
+            const matchesSearch = item.name.toLowerCase().includes(invSearch) || item.batch.toLowerCase().includes(invSearch);
+            const matchesFilter = (invFilter === 'all') || 
+                                    (invFilter === 'rx' && item.rxRequired === true) || 
+                                    (invFilter === 'otc' && item.rxRequired === false);
+            return matchesSearch && matchesFilter;
+        });
+
+        document.getElementById('inventory-tbody').innerHTML = filteredInvDb.map(item => {
+            let badge = item.stock <= 20 ? `<span class="badge badge-warning">Low Stock</span>` : (item.expiry.startsWith("2026") ? `<span class="badge badge-danger">Expiring</span>` : `<span class="badge badge-success">Optimal</span>`);
+            let rxIndicator = item.rxRequired ? `<span style="color: var(--danger); font-weight: bold; font-size: 0.8rem; margin-left: 5px;">[Rx]</span>` : '';
+            return `<tr><td><strong>${item.batch}</strong></td><td>${item.name} ${rxIndicator}</td><td>${item.stock}</td><td>₱${item.price.toFixed(2)}</td><td>${item.expiry}</td><td>${badge}</td>
+            <td><button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="openInventoryModal(${item.id})">Update</button></td></tr>`;
+        }).join('');
+    }
+
+    if (document.getElementById('pos-grid')) {
+        const posSearch = document.getElementById('pos-search') ? document.getElementById('pos-search').value.toLowerCase() : '';
+        const posFilter = document.getElementById('pos-filter') ? document.getElementById('pos-filter').value : 'all';
+        
+        const filteredPosDb = db.filter(item => {
+            const matchesSearch = item.name.toLowerCase().includes(posSearch);
+            const matchesFilter = (posFilter === 'all') || 
+                                    (posFilter === 'rx' && item.rxRequired === true) || 
+                                    (posFilter === 'otc' && item.rxRequired === false);
+            return matchesSearch && matchesFilter;
+        });
+        
+        document.getElementById('pos-grid').innerHTML = filteredPosDb.map(item => {
+            let rxBadge = item.rxRequired ? `<span style="font-size:0.7rem; background:var(--danger); color:white; padding:2px 6px; border-radius:4px; margin-top:5px; display:inline-block;">Rx Required</span>` : '';
+            return `<div class="pos-item-btn" onclick="addToCart(${item.id})">
+                        <div>
+                            <span style="font-weight:600; color:var(--dark); font-size:0.95rem; display:block;">${item.name}</span>
+                            ${rxBadge}
+                        </div>
+                        <div style="margin-top:auto;">
+                            <span style="display:block; font-size:1.4rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">₱${item.price.toFixed(2)}</span>
+                            <span style="font-size:0.8rem; color:#888; background:#f1f3f5; padding:3px 8px; border-radius:12px;">Stock: ${item.stock}</span>
+                        </div>
+                    </div>`;
+        }).join('');
+        
+        let cartTotal = 0;
+        document.getElementById('cart-list').innerHTML = cart.map((item, index) => { 
+            cartTotal += item.price; 
+            let itemRxIcon = item.rxRequired ? `<span style="color:var(--danger); font-size:0.75rem; font-weight:bold;">[Rx]</span>` : '';
+            return `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px dashed var(--border); padding-bottom:5px;">
+                        <div style="flex:1;">
+                            <span style="display:block; font-size:0.9rem;">${item.name} ${itemRxIcon}</span>
+                            <span style="font-weight:bold; color:var(--dark);">₱${item.price.toFixed(2)}</span>
+                        </div>
+                        <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem; height: 30px; border-radius:4px;" onclick="removeFromCart(${index})">✕</button>
+                    </div>`; 
+        }).join('');
+        document.getElementById('cart-subtotal').innerText = cartTotal.toFixed(2);
+        document.getElementById('cart-total').innerText = cartTotal.toFixed(2);
+        
+        updateRecommendations(); // Triggers the new recommendation widget
+    }
+
+    // NEW: Added AI logic to compute discounts inside the Expiry Mitigation Protocol
+    const expiringItems = db.filter(item => item.expiry.startsWith("2026"));
+    const spHtml = expiringItems.map(item => {
+        let today = new Date();
+        let expDate = new Date(item.expiry);
+        let diffTime = Math.abs(expDate - today);
+        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        let suggestedDiscount = 10;
+        if (diffDays <= 30 && item.stock > 50) suggestedDiscount = 50;
+        else if (diffDays <= 30 && item.stock <= 50) suggestedDiscount = 30;
+        else if (diffDays <= 90 && item.stock > 100) suggestedDiscount = 25;
+        else if (diffDays <= 90) suggestedDiscount = 15;
+
+        return `
+        <div class="card" style="border-top-color: var(--warning);">
+            <h3>Expiry Mitigation Protocol</h3>
+            <p style="margin-top: 15px; font-size: 0.95rem; line-height: 1.6; color: #555;"><strong>Flagged SKU:</strong> ${item.name} (${item.batch})<br><strong>Status:</strong> Impending expiration on ${item.expiry}.</p>
+            
+            <div style="background: #e8f4f8; border-left: 4px solid #17a2b8; padding: 12px; border-radius: 4px; margin-top: 15px;">
+                <strong style="color: #0c5460; font-size: 0.9rem;">🤖 AI Analysis:</strong>
+                <p style="font-size: 0.85rem; color: #0c5460; margin-top: 5px; line-height: 1.4;">Remaining shelf life is <strong>${diffDays} days</strong> with <strong>${item.stock} units</strong> in stock. To optimize sell-through rate before expiration, the system suggests a <strong>${suggestedDiscount}% discount</strong>.</p>
+                <button class="btn btn-outline" style="margin-top: 8px; padding: 4px 10px; font-size: 0.8rem; border-color: #17a2b8; color: #17a2b8;" onclick="document.getElementById('discount-slider-${item.id}').value = ${suggestedDiscount}; updatePricePreview(${item.id}, ${item.price});">Apply ${suggestedDiscount}% Suggestion</button>
+            </div>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <label>Dynamic Discount Slider</label>
+                <input type="range" id="discount-slider-${item.id}" min="0" max="75" value="0" style="width:100%; margin: 10px 0;" oninput="updatePricePreview(${item.id}, ${item.price})">
+                <div style="text-align: center; font-weight:bold; font-size: 1.2rem; color: var(--primary);" id="discount-val-${item.id}">0% OFF</div>
+            </div>
+            <div style="background: var(--dark); color: white; padding: 20px; border-radius: 6px; text-align: center; margin-bottom: 20px;">
+                <span style="font-size: 0.9rem; opacity: 0.8;">New POS Terminal Price:</span><br>
+                <strong style="font-size: 2rem; color: var(--secondary);">₱ <span id="new-price-preview-${item.id}">${item.price.toFixed(2)}</span></strong>
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="applySmartPrice(${item.id})">Apply to Database</button>
         </div>
+    `}).join('');
+    document.getElementById('smart-pricing-container').innerHTML = spHtml || '<p style="color: #666; font-size: 1.1rem; grid-column: 1 / -1;">No items currently flagged for smart pricing mitigation.</p>';
 
-        <div class="form-group" style="margin-top: 20px;">
-            <label>Dynamic Discount Slider</label>
-            <input type="range" id="discount-slider-${item.id}" min="0" max="75" value="0" style="width:100%; margin: 10px 0;" oninput="updatePricePreview(${item.id}, ${item.price})">
-            <div style="text-align: center; font-weight:bold; font-size: 1.2rem; color: var(--primary);" id="discount-val-${item.id}">0% OFF</div>
-        </div>
-        <div style="background: var(--dark); color: white; padding: 20px; border-radius: 6px; text-align: center; margin-bottom: 20px;">
-            <span style="font-size: 0.9rem; opacity: 0.8;">New POS Terminal Price:</span><br>
-            <strong style="font-size: 2rem; color: var(--secondary);">₱ <span id="new-price-preview-${item.id}">${item.price.toFixed(2)}</span></strong>
-        </div>
-        <button class="btn btn-primary" style="width: 100%;" onclick="applySmartPrice(${item.id})">Apply to Database</button>
-    </div>
-`}).join('');
-document.getElementById('smart-pricing-container').innerHTML = spHtml || '<p style="color: #666; font-size: 1.1rem; grid-column: 1 / -1;">No items currently flagged for smart pricing mitigation.</p>';
+    let salesHtml = `<tr><td colspan="6" style="text-align:center; color:#888;">No transactions processed yet.</td></tr>`;
+    if (salesHistory.length > 0) {
+        salesHtml = salesHistory.map(log => `
+            <tr>
+                <td><strong>${log.txn}</strong></td>
+                <td style="font-size:0.85rem; max-width:250px;">${log.items}</td>
+                <td>${log.qty} items</td>
+                <td style="font-weight:bold; color:var(--primary);">₱${log.total.toFixed(2)}</td>
+                <td>${log.time}</td>
+                <td>${log.cashier}</td>
+            </tr>
+        `).join('');
+    }
 
-let salesHtml = `<tr><td colspan="6" style="text-align:center; color:#888;">No transactions processed yet.</td></tr>`;
-if (salesHistory.length > 0) {
-    salesHtml = salesHistory.map(log => `
-        <tr>
-            <td><strong>${log.txn}</strong></td>
-            <td style="font-size:0.85rem; max-width:250px;">${log.items}</td>
-            <td>${log.qty} items</td>
-            <td style="font-weight:bold; color:var(--primary);">₱${log.total.toFixed(2)}</td>
-            <td>${log.time}</td>
-            <td>${log.cashier}</td>
-        </tr>
-    `).join('');
-}
-
-if(document.getElementById('sales-reports-tbody')) {
-    document.getElementById('sales-reports-tbody').innerHTML = salesHtml;
-}
-if(document.getElementById('admin-sales-reports-tbody')) {
-    document.getElementById('admin-sales-reports-tbody').innerHTML = salesHtml;
-}
-
-document.getElementById('users-tbody').innerHTML = usersDb.map(user => {
-    let roleBadge = user.role === "Owner" ? `<span class="badge badge-success">Owner</span>` : `<span class="badge badge-warning">Employee</span>`;
-    let statusColor = user.status === "Online" ? `var(--secondary)` : `#6c757d`;
-    return `<tr>
-        <td><strong>${user.name}</strong></td>
-        <td>${roleBadge}</td>
-        <td><span style="color: ${statusColor};">● ${user.status}</span></td>
-        <td style="font-size: 0.85rem; color: #555;">${user.lastLogin}</td>
-        <td style="font-size: 0.85rem; color: #555;">${user.lastLogout}</td>
-    </tr>`;
-}).join('');
+    if(document.getElementById('sales-reports-tbody')) {
+        document.getElementById('sales-reports-tbody').innerHTML = salesHtml;
+    }
+    if(document.getElementById('admin-sales-reports-tbody')) {
+        document.getElementById('admin-sales-reports-tbody').innerHTML = salesHtml;
+    }
 }
