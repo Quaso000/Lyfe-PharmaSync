@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 24, 2026 at 08:16 AM
+-- Generation Time: Aug 26, 2026 at 12:24 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -212,17 +212,19 @@ CREATE TABLE `users` (
   `username` text NOT NULL,
   `password` text NOT NULL,
   `status` text NOT NULL,
-  `last_login` datetime DEFAULT NULL
+  `last_login` datetime DEFAULT NULL,
+  `last_active` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`user_id`, `role_id`, `first_name`, `middle_initial`, `last_name`, `phone_number`, `email`, `username`, `password`, `status`, `last_login`) VALUES
-(1, 1, 'John Kaye', '', 'Fernandez', '', 'admin', 'johnkaye123', 'lyfe2026', 'Offline', '2026-08-24 03:17:26'),
-(2, 2, 'Joseph', '', 'Osena', '', 'joseph_staff', 'osep123', 'lyfe2026', 'Offline', '2026-08-24 03:07:24'),
-(3, 2, 'Francis', '', 'Mariscal', '', 'francis_staff', 'francis123', 'lyfe2026', 'Offline', NULL);
+INSERT INTO `users` (`user_id`, `role_id`, `first_name`, `middle_initial`, `last_name`, `phone_number`, `email`, `username`, `password`, `status`, `last_login`, `last_active`) VALUES
+(1, 1, 'John Kaye', '', 'Fernandez', '', 'admin', 'johnkaye123', '123', 'Offline', '2026-08-26 01:55:43', '2026-08-26 02:00:50'),
+(2, 2, 'Joseph', '', 'Osena', '', 'joseph_staff', 'osep123', 'lyfe2026', 'Offline', '2026-08-26 00:56:23', '2026-08-26 01:39:38'),
+(3, 2, 'Francis', '', 'Mariscal', '', 'francis_staff', 'francis123', 'lyfe2026', 'Offline', NULL, NULL),
+(4, 2, 'Quaso', 'D.', 'Nibba', '09123456789', 'name1@gmail.com', 'quaso', 'quaso000', 'Offline', '2026-08-26 02:08:11', '2026-08-26 02:08:18');
 
 --
 -- Indexes for dumped tables
@@ -299,7 +301,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- Constraints for dumped tables

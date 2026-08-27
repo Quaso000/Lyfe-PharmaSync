@@ -159,65 +159,109 @@
             $identifier = trim($_POST['identifier'] ?? '');
 
             if (empty($identifier)){
-                echo json_encode([
-                    "success" => false, 
-                    "message" => "Please provide an email or username."
-                ]);
+                echo json_encode(["success" => false, "message" => "Please enter your username."]);
                 exit;
             }
 
-            $stmt = $pdo -> prepare('SELECT user_id, phone_number FROM users WHERE username = ? OR email = ?');
-            $stmt->execute([$identifier, $identifier]);
-            $userRecord = $stmt -> fetch();
+            // Check if the username exists in the database
+            $stmt = $pdo->prepare('SELECT user_id, phone_number FROM users WHERE username = ?');
+            $stmt->execute([$identifier]);
+            $userRecord = $stmt->fetch();
 
-            if (!$userRecord || empty($userRecord['phone_number'])){
-                echo json_encode([
-                    "success" => false, 
-                    "message" => "No account found, or no mobile number is registered to this account."
-                ]);
+            if (!$userRecord) {
+                echo json_encode(["success" => false, "message" => "Username not found in the system."]);
                 exit;
             }
 
-            $otpCode = rand(100000, 999999);
-
-            // $API_Key = '';
-            // $recipientNumber = $userRecord['phone_number'];
-            // $smsMessage = "Lyfe Pharmacy: Your password reset OTP is " . $otpCode . ". Do not share this code.";
-
-            // $ch = curl_init();
-            // $body = array(
-            //     'apikey' => $API_Key,
-            //     'number' => $recipientNumber,
-            //     'message' => $smsMessage,
-            //     // 'sendername' => 
-            // );
-
-            // // curl_setopt($ch, CURLOPT_URL, 'https://semaphore.co/api/v4/messages');
-            // curl_setopt($ch, CURLOPT_POST, 1);
-            // curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($body));
-            // curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-            // $output = curl_exec($ch);
-            // $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            // // curl_close($ch);
-
-            // if ($httpCode == 200){
-            //     echo json_encode([
-            //         "success" => true, 
-            //         "message" => "A password reset link has been simulated and 'sent' to the email on file."
-            //     ]);
-            // } else {
-            //     echo json_encode([
-            //         "success" => false, 
-            //         "message" => "System error: Failed to dispatch SMS. Please try again later."
-            //     ]);
-            // }
+            // Optional: Mask the phone number for security (e.g., 09123456789 -> 0912***6789)
+            $phone = $userRecord['phone_number'];
+            $maskedPhone = (strlen($phone) > 7) ? substr($phone, 0, 4) . '***' . substr($phone, -4) : "your registered number";
 
             echo json_encode([
                 "success" => true, 
-                "message" => "A password reset link has been simulated and 'sent' to the email on file."
+                "masked_phone" => $maskedPhone
             ]);
 
+            // $identifier = trim($_POST['identifier'] ?? '');
+
+            // if (empty($identifier)){
+            //     echo json_encode([
+            //         "success" => false, 
+            //         "message" => "Please provide an email or username."
+            //     ]);
+            //     exit;
+            // }
+
+            // $stmt = $pdo -> prepare('SELECT user_id, phone_number FROM users WHERE username = ? OR email = ?');
+            // $stmt->execute([$identifier, $identifier]);
+            // $userRecord = $stmt -> fetch();
+
+            // if (!$userRecord || empty($userRecord['phone_number'])){
+            //     echo json_encode([
+            //         "success" => false, 
+            //         "message" => "No account found, or no mobile number is registered to this account."
+            //     ]);
+            //     exit;
+            // }
+
+            // $otpCode = rand(100000, 999999);
+
+            // // $API_Key = '';
+            // // $recipientNumber = $userRecord['phone_number'];
+            // // $smsMessage = "Lyfe Pharmacy: Your password reset OTP is " . $otpCode . ". Do not share this code.";
+
+            // // $ch = curl_init();
+            // // $body = array(
+            // //     'apikey' => $API_Key,
+            // //     'number' => $recipientNumber,
+            // //     'message' => $smsMessage,
+            // //     // 'sendername' => 
+            // // );
+
+            // // // curl_setopt($ch, CURLOPT_URL, 'https://semaphore.co/api/v4/messages');
+            // // curl_setopt($ch, CURLOPT_POST, 1);
+            // // curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($body));
+            // // curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+            // // $output = curl_exec($ch);
+            // // $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            // // // curl_close($ch);
+
+            // // if ($httpCode == 200){
+            // //     echo json_encode([
+            // //         "success" => true, 
+            // //         "message" => "A password reset link has been simulated and 'sent' to the email on file."
+            // //     ]);
+            // // } else {
+            // //     echo json_encode([
+            // //         "success" => false, 
+            // //         "message" => "System error: Failed to dispatch SMS. Please try again later."
+            // //     ]);
+            // // }
+
+            // echo json_encode([
+            //     "success" => true, 
+            //     "message" => "A password reset link has been simulated and 'sent' to the email on file."
+            // ]);
+
+        break;
+
+        case 'reset_password_default':
+            $identifier = trim($_POST['identifier'] ?? '');
+
+            if (empty($identifier)){
+                echo json_encode(["success" => false, "message" => "Missing account identifier."]);
+                exit;
+            }
+
+            // Explicitly overwrite the password to '123' in the database
+            $stmt = $pdo->prepare("UPDATE users SET password = '123' WHERE username = ?");
+            
+            if ($stmt->execute([$identifier])) {
+                echo json_encode(["success" => true]);
+            } else {
+                echo json_encode(["success" => false, "message" => "Database update failed."]);
+            }
         break;
 
         case 'heartbeat':

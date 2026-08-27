@@ -99,9 +99,8 @@
             <div id="form-forgot" class="form-section hidden">
                 <h2 class="form-heading">Reset Password</h2>
                 <p class="form-subheading">Enter your email address to receive reset instructions.</p>
-                <!-- Removed default form submission to directly trigger your API function -->
                 <div class="form-group-auth">
-                    <label>EMAIL / USERNAME</label>
+                    <label>USERNAME</label>
                     <div class="input-wrapper">
                         <i class="fa-regular fa-envelope input-icon"></i>
                         <input type="text" id="forgot-identifier" placeholder="Enter account details..." required>
@@ -111,6 +110,34 @@
                 <div class="forgot-password" style="margin-top: 20px; text-align: center;">
                     <a href="#" onclick="switchAuthTab('login')">&larr; Back to Sign In</a>
                 </div>
+            </div>
+
+            <!-- LOADING SECTION -->
+            <div id="form-loading" class="form-section hidden" style="text-align: center; padding-top: 30px;">
+                <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 45px; color: #2563eb; margin-bottom: 20px;"></i>
+                <h2 class="form-heading">Sending OTP...</h2>
+                <p class="form-subheading">Please wait while we generate your code.</p>
+            </div>
+
+            <!-- OTP SECTION -->
+            <div id="form-otp" class="form-section hidden">
+                <h2 class="form-heading">Enter Verification Code</h2>
+                <!-- Added a span ID to inject the masked phone number -->
+                <p class="form-subheading">Enter the 6-digit code sent to <strong id="otp-phone-display">your phone</strong>.</p>
+                <form onsubmit="verifyOTP(event)">
+                    <div class="otp-wrapper">
+                        <input type="text" class="otp-box" maxlength="1" required autocomplete="off">
+                        <input type="text" class="otp-box" maxlength="1" required autocomplete="off">
+                        <input type="text" class="otp-box" maxlength="1" required autocomplete="off">
+                        <input type="text" class="otp-box" maxlength="1" required autocomplete="off">
+                        <input type="text" class="otp-box" maxlength="1" required autocomplete="off">
+                        <input type="text" class="otp-box" maxlength="1" required autocomplete="off">
+                    </div>
+                    <button type="submit" class="submit-btn btn-green">Verify & Reset Password</button>
+                    <div class="forgot-password" style="margin-top: 20px; text-align: center;">
+                        <a href="#" onclick="switchAuthTab('forgot')">&larr; Cancel and go back</a>
+                    </div>
+                </form>
             </div>
 
         </div>

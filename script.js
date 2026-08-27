@@ -1,6 +1,7 @@
 document.getElementById('current-date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
 let heartbeatInterval;
+let tempOtp = null;
 
 // Your actual global variables
 let currentUserRole = "";
@@ -150,30 +151,6 @@ async function handleLogin(event) {
 function togglePassword(inputId) {
     const input = document.getElementById(inputId);
     input.type = input.type === "password" ? "text" : "password";
-}
-
-//   =============== WORKING FINE ===========
-function showForgotPassword() {
-    document.getElementById('form-login').classList.add('hidden');
-    document.getElementById('form-signup').classList.add('hidden');
-    document.getElementById('form-forgot').classList.remove('hidden');
-
-    document.getElementById('tab-login').classList.remove('active');
-    document.getElementById('tab-signup').classList.remove('active');
-}
-
-//   =============== WORKING FINE ===========
-function switchAuthTab(tab) {
-    document.getElementById('tab-login').classList.remove('active');
-    document.getElementById('tab-signup').classList.remove('active');
-    document.getElementById('form-login').classList.add('hidden');
-    document.getElementById('form-signup').classList.add('hidden');
-    document.getElementById('form-forgot').classList.add('hidden');
-
-    if(tab === 'login' || tab === 'signup') {
-        document.getElementById(`tab-${tab}`).classList.add('active');
-        document.getElementById(`form-${tab}`).classList.remove('hidden');
-    }
 }
 
 //   =============== WORKING FINE ===========
@@ -420,36 +397,217 @@ async function updatePassword() {
     }
 }
 
-async function handleForgotPassword() {
-    const identifier = document.getElementById('forgot-identifier').value.trim();
+//   =============== WORKING FINE ===========
+function showForgotPassword() {
+    switchAuthTab('forgot'); // Now cleanly uses your switch function
+}
+
+//   =============== WORKING FINE ===========
+function switchAuthTab(tab) {
+    document.getElementById('tab-login').classList.remove('active');
+    document.getElementById('tab-signup').classList.remove('active');
     
-    if(!identifier) return alert("Please enter your email or username.");
+    // Hide ALL auth sections dynamically
+    const sections = ['login', 'signup', 'forgot', 'loading', 'otp'];
+    sections.forEach(sec => {
+        const el = document.getElementById(`form-${sec}`);
+        if(el) el.classList.add('hidden');
+    });
 
-    //alert notif design
-
-    // php confirmation to send approval password request
-    const formData = new FormData();
-    formData.append('action', 'forgot_password');
-    formData.append('identifier', identifier);
-
-    try {
-        const response = await fetch('authentication.php', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-
-        if (!data.success) {
-            return alert("Verification Failed: " + data.message);
-        }
-
-        alert(`A password reset link has been sent to the email associated with "${identifier}". Please check your inbox.`);
-        document.getElementById('forgot-identifier').value = '';
-        switchAuthTab('login');
-    } catch (error){
-        alert("A connection error occured.");
+    if(tab === 'login' || tab === 'signup') {
+        document.getElementById(`tab-${tab}`).classList.add('active');
+        document.getElementById(`form-${tab}`).classList.remove('hidden');
+    } else {
+        // Show forgot, loading, or otp sections without highlighting top tabs
+        document.getElementById(`form-${tab}`).classList.remove('hidden');
     }
 }
+
+async function handleForgotPassword() {
+    const identifier = document.getElementById('forgot-identifier').value.trim();
+    if(!identifier) return alert("Please enter your email or username.");
+
+    const toBeSend = new FormData();
+    toBeSend.append('action', 'forgot_password');
+    toBeSend.append('identifier', identifier);
+
+    try {
+        const response = await fetch('authentication.php', { 
+            method: 'POST', 
+            body: toBeSend }
+        );
+
+        // having it text first then parsing to prevent crash
+        const textToParse = await response.text();
+
+        let data;
+        try{
+            data = JSON.parse(textToParse);
+        } catch (e){
+            console.error("PHP Error Output:", textToParse);
+            return alert("System Error: The server returned an invalid response. Check the F12 console.");
+        }
+
+        if (!data.success) {
+            return alert(data.message); // Stops here if username is wrong
+        }
+
+        // Step 1: Switch to Loading UI
+        // Step 2: Username exists! Show the loading UI.
+        switchAuthTab('loading');
+
+        const loadingSection = document.getElementById('form-loading');
+        const originalLoadingHTML = loadingSection.innerHTML;
+
+        // Step 3: Simulate the SMS Gateway delay (2 seconds)
+        setTimeout(() => {
+            // Generate the fake OTP for testing
+            tempOtp = Math.floor(100000 + Math.random() * 900000).toString();
+            console.log(`%c[PharmaSync] Simulated OTP for ${identifier}: ${tempOtp}`, 'color: #20c997; font-size: 16px; font-weight: bold;');
+
+            // Show success transition
+            loadingSection.innerHTML = `
+                <i class="fa-solid fa-circle-check" style="font-size: 45px; color: #20c997; margin-bottom: 20px;"></i>
+                <h2 class="form-heading">OTP Sent!</h2>
+                <p class="form-subheading">A verification code has been sent to ${data.masked_phone}.</p>
+            `;
+
+            // Step 4: Switch to the OTP input screen
+            setTimeout(() => {
+                // Inject the masked phone number from the database into the UI
+                document.getElementById('otp-phone-display').innerText = data.masked_phone;
+                
+                switchAuthTab('otp');
+                
+                const firstBox = document.querySelector('.otp-box');
+                if(firstBox) firstBox.focus();
+
+                setTimeout(() => { loadingSection.innerHTML = originalLoadingHTML; }, 500);
+            }, 2000);
+
+        }, 2000);
+    } catch (error) {
+        console.error("Database connection error: ", error);
+        alert("A connection error occurred. Please check if the server is running.");
+    }
+
+}
+
+// Function to verify the OTP when the user clicks submit
+async function verifyOTP(event) {
+    event.preventDefault();
+    
+    const otpBoxes = document.querySelectorAll('.otp-box');
+    let enteredCode = '';
+    otpBoxes.forEach(box => enteredCode += box.value);
+
+    if (enteredCode === tempOtp) {
+        const identifier = document.getElementById('forgot-identifier').value.trim();
+        const toBeSend = new FormData();
+        toBeSend.append('action', 'reset_password_default');
+        toBeSend.append('identifier', identifier);
+
+        try {
+            const response = await fetch('authentication.php', {
+                method: 'POST',
+                body: toBeSend
+            });
+            const data = await response.json();
+            
+            if (!data.success){
+                return alert("Database Error: " + data.message);
+            }
+            
+            // Step 1: Switch back to the loading/transition container
+            switchAuthTab('loading');
+            
+            const loadingSection = document.getElementById('form-loading');
+    
+            // Step 2: Inject the Success Message with the highlighted default password AND an action button
+            loadingSection.innerHTML = `
+                <i class="fa-solid fa-circle-check" style="font-size: 45px; color: #20c997; margin-bottom: 20px;"></i>
+                <h2 class="form-heading">Verification Complete</h2>
+                <p class="form-subheading" style="font-size: 15px; color: #333; line-height: 1.6;">
+                    Your identity has been verified.<br><br>
+                    Your password has been reset to: <br>
+                    <strong style="display: inline-block; margin-top: 10px; font-size: 22px; color: #2563eb; background: #e0e7ff; padding: 6px 16px; border-radius: 6px; letter-spacing: 2px;">123</strong>
+                </p>
+                <button class="submit-btn btn-blue" style="margin-top: 25px;" onclick="finishPasswordReset()">Okay</button>
+            `;
+        } catch (error) {
+            console.error("Password reset error: ", error);
+            alert("A connection error occurred while resetting the password.");
+        }
+
+    } else {
+        // For an invalid OTP, visually flash the boxes red
+        otpBoxes.forEach(box => {
+            box.style.borderColor = '#dc3545';
+            box.style.backgroundColor = '#f8d7da';
+            box.style.color = '#dc3545';
+        });
+
+        // Wait 1 second, then clear the boxes and let them try again
+        setTimeout(() => {
+            otpBoxes.forEach(box => {
+                box.style.borderColor = '';
+                box.style.backgroundColor = '';
+                box.style.color = '';
+                box.value = ''; 
+            });
+            otpBoxes[0].focus(); 
+        }, 1000);
+    }
+}
+
+// Triggered when the user explicitly clicks "Okay" on the success screen
+function finishPasswordReset() {
+    // Clear inputs
+    document.getElementById('forgot-identifier').value = ''; 
+    document.querySelectorAll('.otp-box').forEach(box => box.value = ''); 
+    
+    // Redirect to login
+    switchAuthTab('login');
+
+    // Quietly restore the original loading spinner HTML in the background for the next user
+    setTimeout(() => {
+        document.getElementById('form-loading').innerHTML = `
+            <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 45px; color: #2563eb; margin-bottom: 20px;"></i>
+            <h2 class="form-heading">Sending OTP...</h2>
+            <p class="form-subheading">Please wait while we generate your code.</p>
+        `;
+    }, 500);
+}
+
+// Auto-tabbing, backspacing, and pasting logic for the 6 boxes
+window.addEventListener('DOMContentLoaded', () => {
+    const otpBoxes = document.querySelectorAll('.otp-box');
+    
+    otpBoxes.forEach((box, i) => {
+        box.addEventListener('input', function() {
+            if (this.value.length === 1 && i < otpBoxes.length - 1) {
+                otpBoxes[i + 1].focus();
+            }
+        });
+        
+        box.addEventListener('keydown', function(e) {
+            if (e.key === 'Backspace' && this.value === '' && i > 0) {
+                otpBoxes[i - 1].focus();
+            }
+        });
+
+        box.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const pastedData = e.clipboardData.getData('text').slice(0, 6).replace(/[^0-9]/g, '');
+            pastedData.split('').forEach((char, index) => {
+                if (index < otpBoxes.length) {
+                    otpBoxes[index].value = char;
+                    if (index < otpBoxes.length - 1) otpBoxes[index + 1].focus();
+                }
+            });
+        });
+    });
+});
 
 
 function closeModal(id) { 

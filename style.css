@@ -466,6 +466,32 @@ form-group-searchbar input,
 .input-wrapper input[type="password"] {
     padding-right: 40px;
 }
+
+.otp-wrapper {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+.otp-box {
+    width: 100%;
+    height: 55px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #0f172a;
+    border: 2px solid #cbd5e1 !important;
+    border-radius: 8px;
+    background: #f8fafc;
+    outline: none;
+    transition: all 0.2s ease;
+    padding: 0 !important; /* Forces the box to ignore global padding */
+}
+.otp-box:focus {
+    border-color: #2563eb !important;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
     
 /* .pwd-toggle { 
     display: flex; 
