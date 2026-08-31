@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 30, 2026 at 04:17 PM
+-- Generation Time: Aug 26, 2026 at 12:24 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -70,6 +70,19 @@ INSERT INTO `inventory_batches` (`batch_id`, `product_id`, `batch_number`, `expi
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `po_items`
+--
+
+CREATE TABLE `po_items` (
+  `po_item_id` int(11) NOT NULL,
+  `po_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `recommended_quantity` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `products`
 --
 
@@ -97,6 +110,19 @@ INSERT INTO `products` (`product_id`, `barcode`, `generic_name`, `brand_name`, `
 (8, 'BAR-108', 'Losartan 50mg Tab', 'Generic', 'Antihypertensive', 50),
 (9, 'BAR-109', 'Omeprazole 20mg Cap', 'Generic', 'PPI', 50),
 (10, 'BAR-110', 'Mefenamic Acid 500mg', 'Generic', 'NSAID', 50);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `purchase_orders`
+--
+
+CREATE TABLE `purchase_orders` (
+  `po_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `date_generated` date NOT NULL,
+  `status` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -195,10 +221,10 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`user_id`, `role_id`, `first_name`, `middle_initial`, `last_name`, `phone_number`, `email`, `username`, `password`, `status`, `last_login`, `last_active`) VALUES
-(1, 1, 'John Kaye', '', 'Fernandez', '', 'admin', 'johnkaye123', '123', 'Offline', '2026-08-27 20:53:56', '2026-08-27 20:53:56'),
-(2, 2, 'Joseph', '', 'Osena', '', 'joseph_staff', 'osep123', 'lyfe2026', 'Offline', '2026-08-29 23:35:42', '2026-08-29 23:35:42'),
+(1, 1, 'John Kaye', '', 'Fernandez', '', 'admin', 'johnkaye123', '123', 'Offline', '2026-08-26 01:55:43', '2026-08-26 02:00:50'),
+(2, 2, 'Joseph', '', 'Osena', '', 'joseph_staff', 'osep123', 'lyfe2026', 'Offline', '2026-08-26 00:56:23', '2026-08-26 01:39:38'),
 (3, 2, 'Francis', '', 'Mariscal', '', 'francis_staff', 'francis123', 'lyfe2026', 'Offline', NULL, NULL),
-(5, 2, 'quaso', 'D', 'bread', '09123456798', 'name@gmail.com', 'quaso', '123', 'Offline', NULL, NULL);
+(4, 2, 'Quaso', 'D.', 'Nibba', '09123456789', 'name1@gmail.com', 'quaso', 'quaso000', 'Offline', '2026-08-26 02:08:11', '2026-08-26 02:08:18');
 
 --
 -- Indexes for dumped tables
@@ -219,10 +245,25 @@ ALTER TABLE `inventory_batches`
   ADD KEY `product_id` (`product_id`);
 
 --
+-- Indexes for table `po_items`
+--
+ALTER TABLE `po_items`
+  ADD PRIMARY KEY (`po_item_id`),
+  ADD KEY `po_id` (`po_id`),
+  ADD KEY `product_id` (`product_id`);
+
+--
 -- Indexes for table `products`
 --
 ALTER TABLE `products`
   ADD PRIMARY KEY (`product_id`);
+
+--
+-- Indexes for table `purchase_orders`
+--
+ALTER TABLE `purchase_orders`
+  ADD PRIMARY KEY (`po_id`),
+  ADD KEY `user_id` (`user_id`);
 
 --
 -- Indexes for table `roles`
@@ -260,7 +301,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- Constraints for dumped tables
@@ -277,6 +318,19 @@ ALTER TABLE `audit_logs`
 --
 ALTER TABLE `inventory_batches`
   ADD CONSTRAINT `inventory_batches_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`product_id`);
+
+--
+-- Constraints for table `po_items`
+--
+ALTER TABLE `po_items`
+  ADD CONSTRAINT `po_items_ibfk_1` FOREIGN KEY (`po_id`) REFERENCES `purchase_orders` (`po_id`),
+  ADD CONSTRAINT `po_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`product_id`);
+
+--
+-- Constraints for table `purchase_orders`
+--
+ALTER TABLE `purchase_orders`
+  ADD CONSTRAINT `purchase_orders_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`);
 
 --
 -- Constraints for table `sales_items`

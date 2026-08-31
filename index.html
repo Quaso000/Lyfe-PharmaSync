@@ -64,9 +64,9 @@
                 <p class="form-subheading">Register your profile to gain access.</p>
                 <form onsubmit="handleSignup(event)">
                     <div class="form-row name-row">
-                        <div class="form-group flex-2"><label>FIRST NAME</label><input type="text" id="signup-firstname" placeholder="Jane" required></div>
-                        <div class="form-group flex-1"><label>M.I.</label><input type="text" id="signup-middleInitial" placeholder="A."></div>
-                        <div class="form-group flex-2"><label>SURNAME</label><input type="text" id="signup-surname" placeholder="Doe" required></div>
+                        <div class="form-group flex-2"><label>FIRST NAME</label><input type="text" id="signup-firstname" placeholder="Quaso" required></div>
+                        <div class="form-group flex-1"><label>M.I.</label><input type="text" id="signup-middleInitial" placeholder="D"></div>
+                        <div class="form-group flex-2"><label>SURNAME</label><input type="text" id="signup-surname" placeholder="Bread" required></div>
                     </div>
                     <div class="form-group"><label>EMAIL</label><div class="input-wrapper"><i class="fa-regular fa-envelope input-icon"></i><input type="email" id="signup-email" placeholder="jane.doe@example.com" required></div></div>
                     <div class="form-group"><label>PHONE</label><div class="input-wrapper"><i class="fa-solid fa-phone input-icon"></i><input type="tel" id="signup-phoneNumber" placeholder="+63 912 345 6789" required></div></div>
@@ -253,42 +253,99 @@
             <!-- USER MODULE UI, FUNCTION, AND STRUCTURE -->
             <div id="users" class="module">
                 <h2 class="header-title">Personnel & Users Module</h2>
+
+                <!-- Sliding Tabs Navigation -->
+                <div class="auth-tabs" style="max-width: 450px; margin-bottom: 25px;">
+                    <button id="utab-personnel" class="tab-btn active-blue" onclick="switchUserTab('personnel')">Personnel & Users</button>
+                    <button id="utab-profile" class="tab-btn inactive" onclick="switchUserTab('profile')">My Account</button>
+                </div>
                 
-                <div class="card" style="margin-bottom: 25px; border-top-color: var(--dark);">
-                    <h3 style="color: var(--dark); margin-bottom: 15px;">🔒 Account Security (Change Password)</h3>
-                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">Update your login password securely. You must verify your current password to proceed.</p>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: end;">
-                        <div class="form-group-userpassword" style="margin-bottom: 0;">
-                            <label>Current Password</label>
-                            <input type="password" id="cp-current" placeholder="Enter current password">
-                        </div>
-                        <div class="form-group-userpassword" style="margin-bottom: 0;">
-                            <label>New Password</label>
-                            <input type="password" id="cp-new" placeholder="Enter new password">
-                        </div>
-                        <div class="form-group-userpassword" style="margin-bottom: 0;">
-                            <label>Confirm New Password</label>
-                            <input type="password" id="cp-confirm" placeholder="Confirm new password">
-                        </div>
-                    </div>
-                    <button class="btn btn-primary" style="margin-top: 20px;" onclick="updatePassword()">Update Password</button>
+                <!-- TAB 1: Personnel Management (Table) -->
+                <div id="usec-personnel" class="form-section">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Employee Name</th>
+                                <th>Role Authorization</th>
+                                <th>Account Status</th>
+                                <th>Last Login</th>
+                                <th id="admin-action-header" style="display: none;">Manage</th>
+                            </tr>
+                        </thead>
+                        <tbody id="personnel-tbody">
+                            <tr><td colspan="5" style="text-align:center; color:#888;">Loading users...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
 
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Employee Name</th>
-                            <th>Role Authorization</th>
-                            <th>Account Status</th>
-                            <th>Last Login</th>
-                            <th id="admin-action-header" style="display: none;">Manage</th>
-                        </tr>
-                    </thead>
-                    <tbody id="users-tbody">
-                        <tr><td colspan="5" style="text-align:center; color:#888;">Loading users...</td></tr>
-                    </tbody>
-                </table>
+                <!-- TAB 2: My Account (Profile & Security) -->
+                <div id="usec-profile" class="form-section hidden">
+                    <!-- Removed the strict max-width so it expands exactly like the table -->
+                    <div class="content" style="width: 100%;">
+                        
+                        <!-- Personal Info Card -->
+                        <div class="card" style="margin-bottom: 25px; border-top-color: var(--secondary);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3 style="color: var(--dark); margin: 0;">👤 Personal Info</h3>
+                                <button id="btn-edit-profile" class="btn btn-outline" style="padding: 6px 15px; font-size: 0.85rem;" onclick="toggleEditProfile()">Edit Profile</button>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 2fr 1fr 2fr; gap: 25px; margin-bottom: 25px;">
+                                <div class="form-group" style="margin-bottom: 0;"><label>First Name</label><input type="text" id="inp-fname" disabled></div>
+                                <div class="form-group" style="margin-bottom: 0;"><label>M.I.</label><input type="text" id="inp-mi" disabled></div>
+                                <div class="form-group" style="margin-bottom: 0;"><label>Last Name</label><input type="text" id="inp-lname" disabled></div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 25px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label>Registered Email</label>
+                                    <input type="email" id="inp-email" disabled>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label>Phone Number</label>
+                                    <input type="tel" id="inp-phone" disabled>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label>Username</label>
+                                    <input type="text" id="inp-username" disabled>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Account Security Card -->
+                        <div class="card" style="border-top-color: var(--dark);">
+                            <h3 style="color: var(--dark); margin-bottom: 15px;">🔒 Account Security (Change Password)</h3>
+                            <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">Update your login password securely. You must verify your current password to proceed.</p>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 25px; align-items: end;">
+                                <div class="form-group-userpassword" style="margin-bottom: 0;">
+                                    <label>Current Password</label>
+                                    <input type="password" id="cp-current" placeholder="Enter current password">
+                                </div>
+                                <div class="form-group-userpassword" style="margin-bottom: 0;">
+                                    <label>New Password</label>
+                                    <input type="password" id="cp-new" placeholder="Enter new password">
+                                </div>
+                                <div class="form-group-userpassword" style="margin-bottom: 0;">
+                                    <label>Confirm Password</label>
+                                    <input type="password" id="cp-confirm" placeholder="Confirm new password">
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" style="margin-top: 25px;" onclick="updatePassword()">Update Password</button>
+                        </div>
+
+                        <!-- Wide Footer Design -->
+                        <footer id="profile-footer" class="hidden" style="margin-top: 25px; padding: 15px 25px; background: white; border-radius: 8px; border: 1px solid var(--warning); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                            <div class="status" style="color: #856404; font-size: 0.95rem; font-weight: bold;">⚠️ Unsaved profile changes</div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn" style="background: #e9ecef; color: #333;" onclick="cancelEditProfile()">Cancel</button>
+                                <button class="btn btn-primary" onclick="saveProfileChanges()">Save changes</button>
+                            </div>
+                        </footer>
+
+                    </div>
+                </div>
+
             </div>
             
             <!-- DASHBOARD MODULE UI, FUNCTION, AND STRUCTURE -->
@@ -319,10 +376,10 @@
                 <h2 class="header-title">Terminal Checkout</h2>
                 
                 <div class="filter-bar">
-                    <div class="form-group" style="flex: 2;">
-                        <input type="text" id="pos-search" style="font-size: 1rem;" placeholder="🔍 Search medicines by name..." onkeyup="refreshUI()">
+                    <div style="flex: 2;">
+                        <input type="text" id="pos-search" placeholder="🔍 Search medicines by name..." onkeyup="refreshUI()">
                     </div>
-                    <div class="form-group" style="flex: 1;">
+                    <div style="flex: 1;">
                         <select id="pos-filter" onchange="refreshUI()">
                             <option value="all">All Items</option>
                             <option value="rx">Requires Prescription (Rx)</option>
@@ -371,10 +428,10 @@
                 </div>
                 
                 <div class="filter-bar">
-                    <div class="w" style="flex: 2;">
-                        <input type="text" id="inv-search" style="font-size: 1rem;" placeholder="🔍 Search inventory..." onkeyup="refreshUI()">
+                    <div style="flex: 2;">
+                        <input type="text" id="inv-search" placeholder="🔍 Search inventory..." onkeyup="refreshUI()">
                     </div>
-                    <div class="form-group-searchbar" style="flex: 1;">
+                    <div style="flex: 1;">
                         <select id="inv-filter" onchange="refreshUI()">
                             <option value="all">Filter By Category: All Items</option>
                             <option value="rx">Requires Prescription (Rx)</option>
@@ -385,9 +442,20 @@
 
                 <table>
                     <thead>
-                        <tr><th>Batch Code</th><th>Medication Name</th><th>Qty</th><th>Price</th><th>Expiration</th><th>System Status</th><th>Manage</th></tr>
+                        <tr>
+                            <th>Batch Code</th>
+                            <th>Medication Name</th>
+                            <th>Category</th>
+                            <th>Stock Qty</th>
+                            <th>Price (₱)</th>
+                            <th>Expiration</th>
+                            <th>System Status</th>
+                            <th>Manage</th>
+                        </tr>
                     </thead>
-                    <tbody id="inventory-tbody"></tbody>
+                    <tbody id="inventory-tbody">
+                        <tr><td colspan="8" style="text-align:center; color:#888;">Loading inventory...</td></tr>
+                    </tbody>
                 </table>
             </div>
 

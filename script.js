@@ -8,6 +8,8 @@ let currentUserRole = "";
 let currentUserName = "";
 let currentUserId = "";
 
+let originalProfileData = {};
+
 // Dummy variables to prevent UI crash during testing
 let db = [];
 let cart = [];
@@ -77,6 +79,36 @@ window.addEventListener('pagehide', function() {
 });
 
 //   =============== WORKING FINE ===========
+window.addEventListener('DOMContentLoaded', () => {
+    const otpBoxes = document.querySelectorAll('.otp-box');
+    
+    otpBoxes.forEach((box, i) => {
+        box.addEventListener('input', function() {
+            if (this.value.length === 1 && i < otpBoxes.length - 1) {
+                otpBoxes[i + 1].focus();
+            }
+        });
+        
+        box.addEventListener('keydown', function(e) {
+            if (e.key === 'Backspace' && this.value === '' && i > 0) {
+                otpBoxes[i - 1].focus();
+            }
+        });
+
+        box.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const pastedData = e.clipboardData.getData('text').slice(0, 6).replace(/[^0-9]/g, '');
+            pastedData.split('').forEach((char, index) => {
+                if (index < otpBoxes.length) {
+                    otpBoxes[index].value = char;
+                    if (index < otpBoxes.length - 1) otpBoxes[index + 1].focus();
+                }
+            });
+        });
+    });
+});
+
+//   =============== WORKING FINE ===========
 function startHeartbeat() {
     heartbeatInterval = setInterval(() => {
         const fd = new FormData();
@@ -85,7 +117,7 @@ function startHeartbeat() {
     }, 60000); 
 }
 
-// ========= LOGIN AUTHENTICATION IS DONE ========
+//   =============== WORKING FINE ===========
 async function handleLogin(event) {
     if (event) {
         event.preventDefault();
@@ -159,9 +191,15 @@ async function handleSignup(event) {
         event.preventDefault();
     }
     
-    const firstName = document.getElementById('signup-firstname').value.trim();
-    const middleInitial = document.getElementById('signup-middleInitial').value.trim();
-    const surname = document.getElementById('signup-surname').value.trim();
+
+    let rawFirstName = document.getElementById('signup-firstname').value.trim();
+    let rawSurname = document.getElementById('signup-surname').value.trim();
+    let rawMI = document.getElementById('signup-middleInitial').value.trim();
+
+    const firstName = rawFirstName ? rawFirstName.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ') : '';
+    const middleInitial = rawSurname ? rawSurname.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ') : '';
+    const surname = rawMI ? rawMI.replace(/\./g, '').toUpperCase() : '';
+
     const email = document.getElementById('signup-email').value.trim();
     const phoneNumber = document.getElementById('signup-phoneNumber').value.trim();
     const username = document.getElementById('signup-username').value.trim();
@@ -263,6 +301,10 @@ function switchModule(modId) {
         fetchUsersList();
     }
 
+    if(modId === 'inventory') {
+        fetchInventoryList();
+    }
+
     if(modId === 'expiry-alerts') {
         renderSmsSettings();
     }
@@ -304,7 +346,7 @@ async function fetchUsersList() {
         const data = await response.json();
         
         if (data.success) {
-            const tbody = document.getElementById('users-tbody');
+            const tbody = document.getElementById('personnel-tbody');
             const actionHeader = document.getElementById('admin-action-header');
             
             // Show the "Manage" column header ONLY for the Owner
@@ -334,9 +376,19 @@ async function fetchUsersList() {
                 let actionCell = '';
                 if (currentUserRole === 'Owner') {
                     if (user.status === 'Pending') {
-                        actionCell = `<td><button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="approveUser(${user.user_id})">Approve Access</button></td>`;
+                        actionCell = `<td>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn" style="background: #28a745; color: white; padding: 4px 10px; font-size: 0.8rem;" onclick="approveUser(${user.user_id})">Approve</button>
+                                <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="voidUser(${user.user_id})">Void</button>
+                            </div>
+                        </td>`;
                     } else {
-                        actionCell = `<td><span style="color:#aaa; font-size:0.85rem;">Approved</span></td>`;
+                        // If they are an employee (not an Owner) and they aren't the current user logged in
+                        if (user.role_name === 'Employee' && parseInt(user.user_id) !== parseInt(currentUserId)) {
+                            actionCell = `<td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem;" onclick="promoteUser(${user.user_id}, '${user.first_name}')">Make Owner</button></td>`;
+                        } else {
+                            actionCell = `<td><span style="color:#aaa; font-size:0.85rem;">No Actions</span></td>`;
+                        }
                     }
                 }
 
@@ -423,6 +475,7 @@ function switchAuthTab(tab) {
     }
 }
 
+//   =============== WORKING FINE ===========
 async function handleForgotPassword() {
     const identifier = document.getElementById('forgot-identifier').value.trim();
     if(!identifier) return alert("Please enter your email or username.");
@@ -493,7 +546,7 @@ async function handleForgotPassword() {
 
 }
 
-// Function to verify the OTP when the user clicks submit
+//   =============== WORKING FINE ===========
 async function verifyOTP(event) {
     event.preventDefault();
     
@@ -560,7 +613,7 @@ async function verifyOTP(event) {
     }
 }
 
-// Triggered when the user explicitly clicks "Okay" on the success screen
+//   =============== WORKING FINE ===========
 function finishPasswordReset() {
     // Clear inputs
     document.getElementById('forgot-identifier').value = ''; 
@@ -579,35 +632,252 @@ function finishPasswordReset() {
     }, 500);
 }
 
-// Auto-tabbing, backspacing, and pasting logic for the 6 boxes
-window.addEventListener('DOMContentLoaded', () => {
-    const otpBoxes = document.querySelectorAll('.otp-box');
-    
-    otpBoxes.forEach((box, i) => {
-        box.addEventListener('input', function() {
-            if (this.value.length === 1 && i < otpBoxes.length - 1) {
-                otpBoxes[i + 1].focus();
-            }
-        });
-        
-        box.addEventListener('keydown', function(e) {
-            if (e.key === 'Backspace' && this.value === '' && i > 0) {
-                otpBoxes[i - 1].focus();
-            }
-        });
+//   =============== WORKING FINE ===========
+async function voidUser(userId) {
+    if (!confirm("Are you sure you want to void and permanently delete this account request?")) {
+        return;
+    }
 
-        box.addEventListener('paste', function(e) {
-            e.preventDefault();
-            const pastedData = e.clipboardData.getData('text').slice(0, 6).replace(/[^0-9]/g, '');
-            pastedData.split('').forEach((char, index) => {
-                if (index < otpBoxes.length) {
-                    otpBoxes[index].value = char;
-                    if (index < otpBoxes.length - 1) otpBoxes[index + 1].focus();
-                }
-            });
-        });
+    const fd = new FormData();
+    fd.append('action', 'void_user');
+    fd.append('target_id', userId);
+
+    try {
+        const response = await fetch('authentication.php', { method: 'POST', body: fd });
+        const data = await response.json();
+
+        if (data.success) {
+            alert("Account request has been successfully voided and removed.");
+            fetchUsersList(); // Refresh the table
+        } else {
+            alert("Error: " + data.message);
+        }
+    } catch (error) {
+        console.error("Void error: ", error);
+        alert("A connection error occurred while trying to void the account.");
+    }
+}
+
+//   =============== WORKING FINE ===========
+async function promoteUser(userId, firstName) {
+    if (!confirm(`Are you sure you want to promote ${firstName} to an Owner? They will be granted full system access.`)) {
+        return;
+    }
+
+    const toBeSend = new FormData();
+    toBeSend.append('action', 'promote_user');
+    toBeSend.append('target_id', userId);
+
+    try {
+        const response = await fetch('authentication.php', { method: 'POST', body: toBeSend });
+        const data = await response.json();
+
+        if (data.success) {
+            alert(`${firstName} has been successfully promoted to Owner.`);
+            fetchUsersList(); // Refresh the table
+        } else {
+            alert("Error: " + data.message);
+        }
+    } catch (error) {
+        console.error("Promotion error: ", error);
+        alert("A connection error occurred while trying to promote the account.");
+    }
+}
+
+//   =============== WORKING FINE ===========
+function switchUserTab(tab) {
+    document.getElementById('utab-personnel').className = 'tab-btn inactive';
+    document.getElementById('utab-profile').className = 'tab-btn inactive';
+    document.getElementById('usec-personnel').classList.add('hidden');
+    document.getElementById('usec-profile').classList.add('hidden');
+
+    if (tab === 'personnel') {
+        document.getElementById('utab-personnel').className = 'tab-btn active-blue';
+        document.getElementById('usec-personnel').classList.remove('hidden');
+    } else if (tab === 'profile') {
+        document.getElementById('utab-profile').className = 'tab-btn active-blue';
+        document.getElementById('usec-profile').classList.remove('hidden');
+        loadProfileData(); 
+    }
+}
+
+//   =============== WORKING FINE ===========
+async function loadProfileData() {
+    const fd = new FormData();
+    fd.append('action', 'get_profile');
+    try {
+        const res = await fetch('authentication.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success) {
+            originalProfileData = data.profile;
+            document.getElementById('inp-fname').value = data.profile.first_name;
+            document.getElementById('inp-mi').value = data.profile.middle_initial;
+            document.getElementById('inp-lname').value = data.profile.last_name;
+            document.getElementById('inp-email').value = data.profile.email;
+            document.getElementById('inp-phone').value = data.profile.phone_number;
+            document.getElementById('inp-username').value = data.profile.username;
+        }
+    } catch (error) {
+        console.error("Failed to load profile data", error);
+    }
+}
+
+//   =============== WORKING FINE ===========
+function toggleEditProfile() {
+    const isDisabled = document.getElementById('inp-fname').disabled;
+    const inputs = ['inp-fname', 'inp-mi', 'inp-lname', 'inp-email', 'inp-phone', 'inp-username'];
+    
+    if (isDisabled) {
+        inputs.forEach(id => document.getElementById(id).disabled = false);
+        document.getElementById('btn-edit-profile').innerText = "Cancel Editing";
+        document.getElementById('btn-edit-profile').classList.replace('btn-outline', 'btn-secondary');
+    } else {
+        cancelEditProfile();
+    }
+}
+
+//   =============== WORKING FINE ===========
+function cancelEditProfile() {
+    document.getElementById('inp-fname').value = originalProfileData.first_name;
+    document.getElementById('inp-mi').value = originalProfileData.middle_initial;
+    document.getElementById('inp-lname').value = originalProfileData.last_name;
+    document.getElementById('inp-email').value = originalProfileData.email;
+    document.getElementById('inp-phone').value = originalProfileData.phone_number;
+    document.getElementById('inp-username').value = originalProfileData.username;
+    
+    ['inp-fname', 'inp-mi', 'inp-lname', 'inp-email', 'inp-phone', 'inp-username'].forEach(id => document.getElementById(id).disabled = true);
+    document.getElementById('profile-footer').classList.add('hidden');
+    document.getElementById('btn-edit-profile').innerText = "Edit Profile";
+    document.getElementById('btn-edit-profile').classList.replace('btn-secondary', 'btn-outline');
+}
+
+['inp-fname', 'inp-mi', 'inp-lname', 'inp-email', 'inp-phone', 'inp-username'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+        document.getElementById('profile-footer').classList.remove('hidden');
     });
 });
+
+//   =============== WORKING FINE ===========
+async function saveProfileChanges() {
+    const fd = new FormData();
+    fd.append('action', 'update_profile');
+    
+    const fn = document.getElementById('inp-fname').value.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    const ln = document.getElementById('inp-lname').value.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    
+    fd.append('first_name', fn);
+    fd.append('middle_initial', document.getElementById('inp-mi').value);
+    fd.append('last_name', ln);
+    fd.append('email', document.getElementById('inp-email').value);
+    fd.append('phone_number', document.getElementById('inp-phone').value);
+    fd.append('username', document.getElementById('inp-username').value);
+
+    try {
+        const res = await fetch('authentication.php', { method: 'POST', body: fd });
+        const data = await res.json();
+
+        if (data.success) {
+            alert("Profile successfully updated.");
+            document.getElementById('user-name-display').innerText = `${fn} ${ln}`;
+            await loadProfileData();
+            cancelEditProfile();
+        } else {
+            alert("Error: " + data.message);
+        }
+    } catch (error) {
+        alert("A connection error occurred.");
+    }
+}
+
+async function fetchInventoryList() {
+    const fd = new FormData();
+    fd.append('action', 'fetch_inventory');
+    
+    try {
+        const response = await fetch('inventory.php', { method: 'POST', body: fd });
+        const data = await response.json();
+        
+        if (data.success) {
+            // Overwrite the global db array with real data so POS and Alerts can use it too!
+            db = data.inventory; 
+            renderInventoryTable();
+        } else {
+            console.error("Failed to load inventory:", data.message);
+        }
+    } catch (error) {
+        console.error("Connection error while fetching inventory:", error);
+    }
+}
+
+function renderInventoryTable() {
+    const tbody = document.getElementById('inventory-tbody');
+    if (!tbody) return;
+
+    const invSearch = document.getElementById('inv-search').value.toLowerCase();
+    const invFilter = document.getElementById('inv-filter').value.toLowerCase();
+    
+    // Apply Search and Category Filters
+    const filteredDb = db.filter(item => {
+        const matchesSearch = item.name.toLowerCase().includes(invSearch) || item.batch.toLowerCase().includes(invSearch);
+        const matchesFilter = (invFilter === 'all') || (item.category.toLowerCase() === invFilter);
+        return matchesSearch && matchesFilter;
+    });
+
+    tbody.innerHTML = filteredDb.map(item => {
+        // Assign Badge Colors based on the PHP status
+        let badgeClass = 'badge-success'; 
+        if (item.status === 'Low Stock') badgeClass = 'badge-warning';
+        if (item.status === 'Expiring Soon' || item.status === 'Expired') badgeClass = 'badge-danger';
+
+        let badge = `<span class="badge ${badgeClass}">${item.status}</span>`;
+
+        return `<tr>
+            <td><strong>${item.batch}</strong></td>
+            <td>${item.name}</td>
+            <td style="font-size: 0.85rem; color: #555;">${item.category}</td>
+            <td>${item.stock}</td>
+            <td style="font-weight: 600; color: var(--primary);">₱${item.price.toFixed(2)}</td>
+            <td>${item.expiry}</td>
+            <td>${badge}</td>
+            <td>
+                <div style="display: flex; gap: 5px;">
+                    <button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem;" onclick="openInventoryModal(${item.id})">Edit</button>
+                    <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="deleteInventory(${item.id})">Delete</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+async function deleteInventory(batchId) {
+    // Standard browser confirmation box
+    if (!confirm("Are you sure you want to permanently delete this inventory batch? This action cannot be undone.")) {
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append('action', 'delete_inventory');
+    fd.append('batch_id', batchId);
+
+    try {
+        const response = await fetch('inventory.php', { method: 'POST', body: fd });
+        const data = await response.json();
+
+        if (data.success) {
+            alert("Inventory batch deleted successfully.");
+            fetchInventoryList(); // Instantly refresh the table
+        } else {
+            alert("Error: " + data.message);
+        }
+    } catch (error) {
+        console.error("Delete error: ", error);
+        alert("A connection error occurred while trying to delete the item.");
+    }
+}
+
+
+
+
 
 
 function closeModal(id) { 

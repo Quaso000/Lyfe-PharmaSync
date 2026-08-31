@@ -527,6 +527,41 @@ form-group-searchbar input,
     margin-bottom: -2px; 
 } */
     
+/* Filter Bar Styles */
+.filter-bar { 
+    display: flex; 
+    gap: 15px; 
+    margin-bottom: 20px; 
+    background: white; 
+    padding: 15px; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02); 
+    border: 1px solid var(--border); 
+    align-items: center; 
+}
+    
+.filter-bar > div { 
+    margin-bottom: 0; 
+}
+    
+.filter-bar select, 
+.filter-bar input { 
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #334155;
+    outline: none;
+    background-color: #fff;
+    height: 45px; /* Ensures perfectly matching heights */
+    transition: border-color 0.2s;
+}
+
+.filter-bar select:focus, 
+.filter-bar input:focus { 
+    border-color: #3b82f6; 
+}
     
 /* Sidebar Navigation */  
 .sidebar { 

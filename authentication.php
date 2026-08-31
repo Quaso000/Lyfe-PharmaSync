@@ -1,31 +1,5 @@
 <?php
-    session_start();
-
-    header('Content-Type: application/json');
-
-    $host = 'localhost';  // to be replace by proper hosting sites
-    $database = 'lyfepharmacydb';
-    
-    // user credential
-    $user = 'root';  // to be replace by user;
-    $pass = '';
-    
-    $dsn = "mysql:host=$host;dbname=$database;charset=utf8mb4";
-    
-    $options = [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ];
-    
-    try {
-        $pdo = new PDO($dsn, $user, $pass, $options);
-    } catch (\PDOException $e) {
-        echo json_encode([
-            "success" => false, 
-            "message" => "Database connection Failed."
-        ]);
-        exit;
-    }
+    require_once 'db_connect.php';
 
     $action = $_POST['action'] ?? '';
 
@@ -370,7 +344,7 @@
             }
             session_destroy(); 
             echo json_encode(["success" => true]);
-            break;
+        break;
 
         case 'update_password':
             // 1. Ensure they are actually logged in
@@ -400,7 +374,70 @@
             } else {
                 echo json_encode(["success" => false, "message" => "Database error."]);
             }
-            break;
+        break;
+
+        case 'void_user':
+            $targetId = $_POST['target_id'] ?? '';
+            if ($targetId) {
+                // Safety check: Ensure ONLY pending accounts can be deleted this way
+                $pdo->prepare("DELETE FROM users WHERE user_id = ? AND status = 'Pending'")->execute([$targetId]);
+                echo json_encode(["success" => true]);
+            } else {
+                echo json_encode(["success" => false, "message" => "No user ID provided."]);
+            }
+        break;
+
+        case 'promote_user':
+            $targetId = $_POST['target_id'] ?? '';
+            if ($targetId) {
+                // Role ID 1 represents the "Owner" in the roles table
+                $pdo->prepare("UPDATE users SET role_id = 1 WHERE user_id = ?")->execute([$targetId]);
+                echo json_encode(["success" => true]);
+            } else {
+                echo json_encode(["success" => false, "message" => "No user ID provided."]);
+            }
+        break;
+
+        case 'get_profile':
+            if (!isset($_SESSION['user_id'])) {
+                echo json_encode(["success" => false]); exit;
+            }
+            $stmt = $pdo->prepare("SELECT first_name, middle_initial, last_name, email, phone_number, username FROM users WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            echo json_encode(["success" => true, "profile" => $stmt->fetch()]);
+        break;
+
+        case 'update_profile':
+            if (!isset($_SESSION['user_id'])) {
+                echo json_encode(["success" => false, "message" => "Unauthorized session."]); exit;
+            }
+
+            $fn = trim($_POST['first_name'] ?? '');
+            $mi = strtoupper(str_replace('.', '', trim($_POST['middle_initial'] ?? '')));
+            $ln = trim($_POST['last_name'] ?? '');
+            $em = trim($_POST['email'] ?? '');
+            $ph = trim($_POST['phone_number'] ?? '');
+            $un = trim($_POST['username'] ?? '');
+
+            if (empty($fn) || empty($ln) || empty($em) || empty($un)) {
+                echo json_encode(["success" => false, "message" => "First Name, Last Name, Email, and Username are required."]); exit;
+            }
+
+            // Verify the requested username is not already taken by ANOTHER user
+            $checkStmt = $pdo->prepare('SELECT user_id FROM users WHERE username = ? AND user_id != ?');
+            $checkStmt->execute([$un, $_SESSION['user_id']]);
+            if($checkStmt->fetch()) {
+                echo json_encode(["success" => false, "message" => "That username is already taken by another account."]);
+                exit;
+            }
+
+            $stmt = $pdo->prepare("UPDATE users SET first_name = ?, middle_initial = ?, last_name = ?, email = ?, phone_number = ?, username = ? WHERE user_id = ?");
+            if ($stmt->execute([$fn, $mi, $ln, $em, $ph, $un, $_SESSION['user_id']])) {
+                echo json_encode(["success" => true]);
+            } else {
+                echo json_encode(["success" => false, "message" => "Database update failed."]);
+            }
+        break;
 
         default:
             echo json_encode([
