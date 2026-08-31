@@ -48,3 +48,7 @@ change username, edit profile info ui page?
 upgrading or promoting an account into admin using the admin account.
 
 what would happen if we registered a username already on the database? same concern if use the same phone number or email
+
+
+
+Inventory module bug: after updating/editing/deleting product it crushes. the filter bar confuses and shows nothing.
