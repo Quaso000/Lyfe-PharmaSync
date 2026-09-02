@@ -2,6 +2,7 @@ document.getElementById('current-date').innerText = new Date().toLocaleDateStrin
 
 let heartbeatInterval;
 let tempOtp = null;
+let batchToDelete = null;
 
 // Your actual global variables
 let currentUserRole = "";
@@ -801,48 +802,48 @@ async function fetchInventoryList() {
             // Overwrite the global db array with real data so POS and Alerts can use it too!
             db = data.inventory; 
             renderInventoryTable();
-        } else {
-            console.error("Failed to load inventory:", data.message);
+            // Call refreshUI to update dashboard cards (but NOT the table)
+            refreshUI(); 
         }
     } catch (error) {
         console.error("Connection error while fetching inventory:", error);
     }
 }
 
+
 function renderInventoryTable() {
     const tbody = document.getElementById('inventory-tbody');
     if (!tbody) return;
 
     const invSearch = document.getElementById('inv-search').value.toLowerCase();
-    const invFilter = document.getElementById('inv-filter').value.toLowerCase();
+    const invFilter = document.getElementById('inv-filter').value;
     
-    // Apply Search and Category Filters
     const filteredDb = db.filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(invSearch) || item.batch.toLowerCase().includes(invSearch);
-        const matchesFilter = (invFilter === 'all') || (item.category.toLowerCase() === invFilter);
+        const matchesFilter = (invFilter === 'all') || (item.drug_type === invFilter);
         return matchesSearch && matchesFilter;
     });
 
     tbody.innerHTML = filteredDb.map(item => {
-        // Assign Badge Colors based on the PHP status
         let badgeClass = 'badge-success'; 
         if (item.status === 'Low Stock') badgeClass = 'badge-warning';
         if (item.status === 'Expiring Soon' || item.status === 'Expired') badgeClass = 'badge-danger';
 
-        let badge = `<span class="badge ${badgeClass}">${item.status}</span>`;
+        let statusBadge = `<span class="badge ${badgeClass}">${item.status}</span>`;
+        let rxBadge = item.drug_type === 'Rx' ? `<span style="color: var(--danger); font-weight: bold; font-size: 0.8rem; margin-left: 5px;">[Rx]</span>` : '';
 
         return `<tr>
             <td><strong>${item.batch}</strong></td>
-            <td>${item.name}</td>
+            <td>${item.name} ${rxBadge}</td>
             <td style="font-size: 0.85rem; color: #555;">${item.category}</td>
             <td>${item.stock}</td>
             <td style="font-weight: 600; color: var(--primary);">₱${item.price.toFixed(2)}</td>
             <td>${item.expiry}</td>
-            <td>${badge}</td>
+            <td>${statusBadge}</td>
             <td>
                 <div style="display: flex; gap: 5px;">
                     <button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem;" onclick="openInventoryModal(${item.id})">Edit</button>
-                    <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="deleteInventory(${item.id})">Delete</button>
+                    <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="showDeleteConfirm(${item.id})">Delete</button>
                 </div>
             </td>
         </tr>`;
@@ -875,6 +876,79 @@ async function deleteInventory(batchId) {
     }
 }
 
+
+function openInventoryModal(id = null) {
+    const isEdit = id !== null;
+    document.getElementById('inv-modal-title').innerText = isEdit ? "Update Inventory Record" : "Register New Batch";
+    const item = isEdit ? db.find(i => i.id === id) : {id:'', batch:'', name:'', stock:'', price:'', expiry:'', drug_type: 'OTC'};
+
+    document.getElementById('inv-id').value = item.id;
+    document.getElementById('inv-batch').value = item.batch;
+    document.getElementById('inv-name').value = item.name;
+    document.getElementById('inv-stock').value = item.stock;
+    document.getElementById('inv-price').value = item.price;
+    document.getElementById('inv-expiry').value = item.expiry;
+    document.getElementById('inv-rx').checked = (item.drug_type === 'Rx');
+
+    document.getElementById('inv-name').disabled = isEdit; 
+    document.getElementById('inventory-modal').classList.remove('hidden');
+}
+
+async function saveInventory() {
+    const id = document.getElementById('inv-id').value;
+    
+    const data = new FormData();
+    data.append('action', id ? 'update_inventory' : 'add_inventory'); // Added logic for new items
+    if (id) data.append('batch_id', id);
+    data.append('batch_number', document.getElementById('inv-batch').value);
+    data.append('quantity_in_stock', document.getElementById('inv-stock').value);
+    data.append('selling_price', document.getElementById('inv-price').value);
+    data.append('expiry_date', document.getElementById('inv-expiry').value);
+    data.append('drug_type', document.getElementById('inv-rx').checked ? 'Rx' : 'OTC');
+
+    try {
+        const res = await fetch('inventory.php', { method: 'POST', body: data });
+        const json = await res.json();
+        if(json.success) {
+            alert(json.message);
+            closeModal('inventory-modal');
+            fetchInventoryList(); 
+        } else {
+            alert("Error: " + json.message);
+        }
+    } catch(e) {
+        alert("A connection error occurred.");
+    }
+}
+
+function showDeleteConfirm(id) {
+    batchToDelete = id;
+    document.getElementById('delete-confirm-modal').classList.remove('hidden');
+}
+
+async function confirmDelete() {
+    if (!batchToDelete) return;
+    
+    const fd = new FormData();
+    fd.append('action', 'delete_inventory');
+    fd.append('batch_id', batchToDelete);
+
+    try {
+        const response = await fetch('inventory.php', { method: 'POST', body: fd });
+        const data = await response.json();
+
+        if (data.success) {
+            alert("Inventory batch deleted successfully.");
+            closeModal('delete-confirm-modal');
+            fetchInventoryList(); 
+        } else {
+            alert("Error: " + data.message);
+            closeModal('delete-confirm-modal');
+        }
+    } catch (error) {
+        alert("A connection error occurred.");
+    }
+}
 
 
 
@@ -980,54 +1054,6 @@ function openHistoryModal() {
     }
 
     document.getElementById('history-modal').classList.remove('hidden');
-}
-
-function openInventoryModal(id = null) {
-    const isEdit = id !== null;
-    document.getElementById('inv-modal-title').innerText = isEdit ? "Update Inventory Record" : "Create New Catalog Entry";
-    const item = isEdit ? db.find(i => i.id === id) : {id:'', batch:'', name:'', stock:'', price:'', expiry:'', rxRequired: false};
-
-    ['id','batch','name','stock','price','expiry'].forEach(key => {
-        document.getElementById(`inv-${key}`).value = item[key];
-    });
-    document.getElementById('inv-rx').checked = item.rxRequired;
-
-    document.getElementById('inventory-modal').classList.remove('hidden');
-}
-
-function saveInventory() {
-    const id = document.getElementById('inv-id').value;
-    const data = {
-        batch: document.getElementById('inv-batch').value,
-        name: document.getElementById('inv-name').value,
-        stock: parseInt(document.getElementById('inv-stock').value),
-        price: parseFloat(document.getElementById('inv-price').value),
-        expiry: document.getElementById('inv-expiry').value,
-        rxRequired: document.getElementById('inv-rx').checked
-    };
-
-    if (id) {
-        const idx = db.findIndex(i => i.id == id);
-        const oldData = db[idx];
-        
-        let changes = [];
-        if (oldData.name !== data.name) changes.push(`Name: '${oldData.name}' to '${data.name}'`);
-        if (oldData.stock !== data.stock) changes.push(`Stock: ${oldData.stock} to ${data.stock}`);
-        if (oldData.price !== data.price) changes.push(`Price: ₱${oldData.price} to ₱${data.price}`);
-        if (oldData.expiry !== data.expiry) changes.push(`Expiry: ${oldData.expiry} to ${data.expiry}`);
-        if (oldData.rxRequired !== data.rxRequired) changes.push(`Rx: ${oldData.rxRequired} to ${data.rxRequired}`);
-        
-        let changeStr = changes.length > 0 ? changes.join(', ') : 'No changes made';
-
-        db[idx] = { ...db[idx], ...data };
-        logHistory("Edit Item", `Updated ${data.batch}: ${changeStr}.`);
-    } else {
-        db.push({ id: Date.now(), ...data });
-        logHistory("New Item", `Added ${data.name} (Batch: ${data.batch}) with ${data.stock} stock at ₱${data.price}.`); 
-    }
-
-    closeModal('inventory-modal');
-    refreshUI();
 }
 
 function updatePricePreview(id, basePrice) {
@@ -1373,25 +1399,9 @@ function refreshUI() {
     document.getElementById('alerts-container').innerHTML = alertsHtml || '<p style="color:#888;">No active alerts at this time.</p>';
     document.getElementById('dash-alerts-count').innerText = alertCount;
 
-    if (document.getElementById('inventory-tbody')) {
-        const invSearch = document.getElementById('inv-search') ? document.getElementById('inv-search').value.toLowerCase() : '';
-        const invFilter = document.getElementById('inv-filter') ? document.getElementById('inv-filter').value : 'all';
+    // if (document.getElementById('inventory-tbody')) {
         
-        const filteredInvDb = db.filter(item => {
-            const matchesSearch = item.name.toLowerCase().includes(invSearch) || item.batch.toLowerCase().includes(invSearch);
-            const matchesFilter = (invFilter === 'all') || 
-                                    (invFilter === 'rx' && item.rxRequired === true) || 
-                                    (invFilter === 'otc' && item.rxRequired === false);
-            return matchesSearch && matchesFilter;
-        });
-
-        document.getElementById('inventory-tbody').innerHTML = filteredInvDb.map(item => {
-            let badge = item.stock <= 20 ? `<span class="badge badge-warning">Low Stock</span>` : (item.expiry.startsWith("2026") ? `<span class="badge badge-danger">Expiring</span>` : `<span class="badge badge-success">Optimal</span>`);
-            let rxIndicator = item.rxRequired ? `<span style="color: var(--danger); font-weight: bold; font-size: 0.8rem; margin-left: 5px;">[Rx]</span>` : '';
-            return `<tr><td><strong>${item.batch}</strong></td><td>${item.name} ${rxIndicator}</td><td>${item.stock}</td><td>₱${item.price.toFixed(2)}</td><td>${item.expiry}</td><td>${badge}</td>
-            <td><button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="openInventoryModal(${item.id})">Update</button></td></tr>`;
-        }).join('');
-    }
+    // }
 
     if (document.getElementById('pos-grid')) {
         const posSearch = document.getElementById('pos-search') ? document.getElementById('pos-search').value.toLowerCase() : '';
