@@ -10,6 +10,10 @@ let currentUserName = "";
 let currentUserId = "";
 
 let originalProfileData = {};
+let currentUserPhone = "";
+let currentUserSmsEnabled = true;
+
+let dispatchedSmsAlerts = new Set();
 
 // Dummy variables to prevent UI crash during testing
 let db = [];
@@ -21,13 +25,18 @@ let totalRevenue = 0;
 let revenueChartInst = null;
 let financialHealthChartInst = null;
 
+
+// =========================================
+// ===== UI / DATA REFRESH FUNCTIONS =======
+// =========================================
+
 //   =============== WORKING FINE ===========
 window.onload = async function() {
     const fd = new FormData();
     fd.append('action', 'check_session');
 
     try {
-        const res = await fetch('authentication.php', { method: 'POST', body: fd });
+        const res = await fetch('user_management.php', { method: 'POST', body: fd });
         const data = await res.json();
         
         if (data.success) {
@@ -35,6 +44,8 @@ window.onload = async function() {
             currentUserRole = data.role;
             currentUserName = data.name;
             currentUserId = data.id;
+            currentUserPhone = data.phone_number || "";
+            currentUserSmsEnabled = data.sms_enabled == 1;
 
             // Restore UI details
             document.getElementById('user-role-display').innerText = data.role;
@@ -44,11 +55,7 @@ window.onload = async function() {
             // Re-filter the sidebar modules based on role
             document.querySelectorAll('.module-link').forEach(btn => {
                 const allowedRoles = btn.getAttribute('data-roles').split(',');
-                if (allowedRoles.includes(currentUserRole)) {
-                    btn.style.display = 'block';
-                } else {
-                    btn.style.display = 'none';
-                }
+                btn.style.display = allowedRoles.includes(currentUserRole) ? 'block' : 'none';
             });
 
             // Bypass Login
@@ -57,9 +64,10 @@ window.onload = async function() {
             document.getElementById('app-content').style.display = 'flex';
             
             startHeartbeat(); 
+            await fetchInventoryList();
+            await fetchSalesHistory();
             switchModule('dashboard');
             initCharts();
-            refreshUI();
         }
     } catch (error) {
         console.error("Session check failed.", error);
@@ -75,7 +83,7 @@ window.addEventListener('pagehide', function() {
         fd.append('action', 'tab_closed');
         fd.append('user_id', userId); 
         
-        navigator.sendBeacon('authentication.php', fd);
+        navigator.sendBeacon('user_management.php', fd);
     }
 });
 
@@ -114,8 +122,60 @@ function startHeartbeat() {
     heartbeatInterval = setInterval(() => {
         const fd = new FormData();
         fd.append('action', 'heartbeat');
-        fetch('authentication.php', { method: 'POST', body: fd });
+        fetch('user_management.php', { method: 'POST', body: fd });
     }, 60000); 
+}
+
+//   =============== WORKING FINE ===========
+function switchModule(modId) {
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(modId).classList.add('active');
+
+    const activeBtn = document.querySelector(`.nav-btn[data-target="${modId}"]`);
+    if(activeBtn) activeBtn.classList.add('active');
+
+    if(modId === 'users') {
+        fetchUsersList();
+    }
+
+    if(modId === 'inventory') {
+        fetchInventoryList();
+    }
+
+    if(modId === 'expiry-alerts') {
+        renderSmsSettings();
+    }
+}
+
+//   =============== WORKING FINE ===========
+function closeModal(id) { 
+    document.getElementById(id).classList.add('hidden'); 
+}
+
+// =========================================
+// ===== AUTHENTICATION FUNCTIONS ==========
+// =========================================
+
+//   =============== WORKING FINE ===========
+function switchAuthTab(tab) {
+    document.getElementById('tab-login').classList.remove('active');
+    document.getElementById('tab-signup').classList.remove('active');
+    
+    // Hide ALL auth sections dynamically
+    const sections = ['login', 'signup', 'forgot', 'loading', 'otp'];
+    sections.forEach(sec => {
+        const el = document.getElementById(`form-${sec}`);
+        if(el) el.classList.add('hidden');
+    });
+
+    if(tab === 'login' || tab === 'signup') {
+        document.getElementById(`tab-${tab}`).classList.add('active');
+        document.getElementById(`form-${tab}`).classList.remove('hidden');
+    } else {
+        // Show forgot, loading, or otp sections without highlighting top tabs
+        document.getElementById(`form-${tab}`).classList.remove('hidden');
+    }
 }
 
 //   =============== WORKING FINE ===========
@@ -148,21 +208,17 @@ async function handleLogin(event) {
         currentUserRole = data.user.role;
         currentUserName = data.user.name;
         currentUserId = data.user.id;
+        currentUserPhone = data.user.phone_number || "";
+        currentUserSmsEnabled = data.user.sms_enabled == 1;
 
         document.getElementById('user-role-display').innerText = currentUserRole;
         document.getElementById('user-name-display').innerText = currentUserName;
-
-    document.getElementById('user-name-display').setAttribute('data-userid', data.user.id);
-
+        document.getElementById('user-name-display').setAttribute('data-userid', data.user.id);
 
         // para ipakita yung modules na kaya nilang iaccess based on roles
         document.querySelectorAll('.module-link').forEach(btn => {
             const allowedRoles = btn.getAttribute('data-roles').split(',');
-            if (allowedRoles.includes(currentUserRole)) {
-                btn.style.display = 'block';
-            } else {
-                btn.style.display = 'none';
-            }
+            btn.style.display = allowedRoles.includes(currentUserRole) ? 'block' : 'none';
         });
 
         document.getElementById('auth-screen').classList.add('hidden');
@@ -174,9 +230,10 @@ async function handleLogin(event) {
         alert("A connection error occurred with the server. Please ensure the database hosting is up.")
     }
     
+    await fetchInventoryList();
+    await fetchSalesHistory();
     switchModule('dashboard');
     initCharts();
-    refreshUI();
     renderSmsSettings(); 
 }
 
@@ -254,8 +311,7 @@ async function handleSignup(event) {
     } catch (error) {
         console.error("System error: ", error);
         alert("A connection error occurred with the server. Please ensure the database hosting is up.");
-         
-    }
+        }
 }
 
 //   =============== WORKING FINE ===========
@@ -278,9 +334,29 @@ async function handleLogout() {
 
         document.getElementById('login-pwd').value = '';
         document.getElementById('login-user').value = '';
-        
         document.getElementById('user-name-display').removeAttribute('data-userid');
 
+        currentUserRole = "";
+        currentUserName = "";
+        currentUserId = "";
+        originalProfileData = {};
+        db = [];
+        cart = [];
+        salesHistory = [];
+        inventoryHistory = [];
+
+        const profileInputs = ['inp-fname', 'inp-mi', 'inp-lname', 'inp-email', 'inp-phone', 'inp-username'];
+        profileInputs.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) {
+                el.value = '';
+                el.disabled = true;
+            }
+        });
+        document.getElementById('profile-footer').classList.add('hidden');
+        
+        // 5. Reset the Users module to the default Personnel tab
+        switchUserTab('personnel');
         switchAuthTab('login'); 
 
     } catch (error) {
@@ -290,190 +366,8 @@ async function handleLogout() {
 }
 
 //   =============== WORKING FINE ===========
-function switchModule(modId) {
-    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(modId).classList.add('active');
-
-    const activeBtn = document.querySelector(`.nav-btn[data-target="${modId}"]`);
-    if(activeBtn) activeBtn.classList.add('active');
-
-    if(modId === 'users') {
-        fetchUsersList();
-    }
-
-    if(modId === 'inventory') {
-        fetchInventoryList();
-    }
-
-    if(modId === 'expiry-alerts') {
-        renderSmsSettings();
-    }
-}
-
-//   =============== WORKING FINE ===========
-async function approveUser(userId) {
-    if (!confirm("Are you sure you want to approve this account and grant system access?")) {
-        return;
-    }
-
-    const fd = new FormData();
-    fd.append('action', 'approve_user');
-    fd.append('target_id', userId);
-
-    try {
-        const response = await fetch('authentication.php', { method: 'POST', body: fd });
-        const data = await response.json();
-
-        if (data.success) {
-            alert("Account successfully approved. The employee can now log in.");
-            fetchUsersList(); // Instantly refresh the table to show the new 'Offline' status
-        } else {
-            alert("Error: " + data.message);
-        }
-    } catch (error) {
-        console.error("Approval error: ", error);
-        alert("A connection error occurred while trying to approve the account.");
-    }
-}
-
-//   =============== WORKING FINE ===========
-async function fetchUsersList() {
-    const toBeSend = new FormData();
-    toBeSend.append('action', 'fetch_users');
-    
-    try {
-        const response = await fetch('authentication.php', { method: 'POST', body: toBeSend });
-        const data = await response.json();
-        
-        if (data.success) {
-            const tbody = document.getElementById('personnel-tbody');
-            const actionHeader = document.getElementById('admin-action-header');
-            
-            // Show the "Manage" column header ONLY for the Owner
-            if (currentUserRole === 'Owner') {
-                actionHeader.style.display = 'table-cell';
-            } else {
-                actionHeader.style.display = 'none';
-            }
-            
-            tbody.innerHTML = data.users.map(user => {
-                let mi = user.middle_initial ? `${user.middle_initial}. ` : '';
-                let fullName = `${user.first_name} ${mi}${user.last_name}`;
-                
-                let statusColor;
-                if (user.status === 'Online') statusColor = '#28a745'; 
-                else if (user.status === 'Idle') statusColor = '#ffc107'; 
-                else if (user.status === 'Pending') statusColor = '#fd7e14'; 
-                else statusColor = '#6c757d'; 
-                
-                let roleBadge = (user.role_name === "Owner")
-                                ? `<span class="badge badge-success">${user.role_name}</span>` 
-                                : `<span class="badge badge-warning">${user.role_name}</span>`;
-
-                let lastLoginDisplay = user.last_login ? user.last_login : '<i style="color:#aaa;">Never logged in</i>';
-
-                // Render Action Button Logic
-                let actionCell = '';
-                if (currentUserRole === 'Owner') {
-                    if (user.status === 'Pending') {
-                        actionCell = `<td>
-                            <div style="display: flex; gap: 5px;">
-                                <button class="btn" style="background: #28a745; color: white; padding: 4px 10px; font-size: 0.8rem;" onclick="approveUser(${user.user_id})">Approve</button>
-                                <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="voidUser(${user.user_id})">Void</button>
-                            </div>
-                        </td>`;
-                    } else {
-                        // If they are an employee (not an Owner) and they aren't the current user logged in
-                        if (user.role_name === 'Employee' && parseInt(user.user_id) !== parseInt(currentUserId)) {
-                            actionCell = `<td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem;" onclick="promoteUser(${user.user_id}, '${user.first_name}')">Make Owner</button></td>`;
-                        } else {
-                            actionCell = `<td><span style="color:#aaa; font-size:0.85rem;">No Actions</span></td>`;
-                        }
-                    }
-                }
-
-                return `<tr>
-                    <td><strong>${fullName}</strong></td>
-                    <td>${roleBadge}</td>
-                    <td><span style="color: ${statusColor}; font-weight: bold;">● ${user.status}</span></td>
-                    <td style="font-size: 0.85rem; color: #555;">${lastLoginDisplay}</td>
-                    ${actionCell}
-                </tr>`;
-            }).join('');
-        }
-    } catch (error) {
-        console.error("Failed to load users: ", error);
-    }
-}
-
-//   =============== WORKING FINE ===========
-async function updatePassword() {
-    const currentInput = document.getElementById('cp-current').value;
-    const newInput = document.getElementById('cp-new').value;
-    const confirmInput = document.getElementById('cp-confirm').value;
-
-    if (!currentInput || !newInput || !confirmInput) {
-        return alert("Please fill in all password fields.");
-    }
-
-    if (newInput !== confirmInput) {
-        return alert("Validation Failed: New passwords do not match.");
-    }
-
-    if (newInput === currentInput) {
-        return alert("Error: New password cannot be the same as your old password.");
-    }
-
-    const fd = new FormData();
-    fd.append('action', 'update_password');
-    fd.append('current_password', currentInput);
-    fd.append('new_password', newInput);
-
-    try {
-        const response = await fetch('authentication.php', { method: 'POST', body: fd });
-        const data = await response.json();
-
-        if (!data.success) {
-            return alert("Validation Failed: " + data.message);
-        }
-
-        // Clear the fields on success
-        document.getElementById('cp-current').value = '';
-        document.getElementById('cp-new').value = '';
-        document.getElementById('cp-confirm').value = '';
-
-        alert("Success! Your password has been updated securely.");
-    } catch (error) {
-        console.error("Password update error: ", error);
-        alert("A connection error occurred with the server.");
-    }
-}
-
-//   =============== WORKING FINE ===========
 function showForgotPassword() {
     switchAuthTab('forgot'); // Now cleanly uses your switch function
-}
-
-//   =============== WORKING FINE ===========
-function switchAuthTab(tab) {
-    document.getElementById('tab-login').classList.remove('active');
-    document.getElementById('tab-signup').classList.remove('active');
-    
-    // Hide ALL auth sections dynamically
-    const sections = ['login', 'signup', 'forgot', 'loading', 'otp'];
-    sections.forEach(sec => {
-        const el = document.getElementById(`form-${sec}`);
-        if(el) el.classList.add('hidden');
-    });
-
-    if(tab === 'login' || tab === 'signup') {
-        document.getElementById(`tab-${tab}`).classList.add('active');
-        document.getElementById(`form-${tab}`).classList.remove('hidden');
-    } else {
-        // Show forgot, loading, or otp sections without highlighting top tabs
-        document.getElementById(`form-${tab}`).classList.remove('hidden');
-    }
 }
 
 //   =============== WORKING FINE ===========
@@ -544,7 +438,6 @@ async function handleForgotPassword() {
         console.error("Database connection error: ", error);
         alert("A connection error occurred. Please check if the server is running.");
     }
-
 }
 
 //   =============== WORKING FINE ===========
@@ -633,6 +526,166 @@ function finishPasswordReset() {
     }, 500);
 }
 
+// =========================================
+// ======== USER MODULE FUNCTIONS ==========
+// =========================================
+
+//   =============== WORKING FINE ===========
+function switchUserTab(tab) {
+    document.getElementById('utab-personnel').className = 'tab-btn inactive';
+    document.getElementById('utab-profile').className = 'tab-btn inactive';
+    document.getElementById('usec-personnel').classList.add('hidden');
+    document.getElementById('usec-profile').classList.add('hidden');
+
+    if (tab === 'personnel') {
+        document.getElementById('utab-personnel').className = 'tab-btn active-blue';
+        document.getElementById('usec-personnel').classList.remove('hidden');
+    } else if (tab === 'profile') {
+        document.getElementById('utab-profile').className = 'tab-btn active-blue';
+        document.getElementById('usec-profile').classList.remove('hidden');
+        loadProfileData(); 
+    }
+}
+
+//   =============== WORKING FINE ===========
+async function approveUser(userId) {
+    if (!confirm("Are you sure you want to approve this account and grant system access?")) {
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append('action', 'approve_user');
+    fd.append('target_id', userId);
+
+    try {
+        const response = await fetch('user_management.php', { method: 'POST', body: fd });
+        const data = await response.json();
+
+        if (data.success) {
+            alert("Account successfully approved. The employee can now log in.");
+            fetchUsersList(); // Instantly refresh the table to show the new 'Offline' status
+        } else {
+            alert("Error: " + data.message);
+        }
+    } catch (error) {
+        console.error("Approval error: ", error);
+        alert("A connection error occurred while trying to approve the account.");
+    }
+}
+
+//   =============== WORKING FINE ===========
+async function fetchUsersList() {
+    const toBeSend = new FormData();
+    toBeSend.append('action', 'fetch_users');
+    
+    try {
+        const response = await fetch('user_management.php', { method: 'POST', body: toBeSend });
+        const data = await response.json();
+        
+        if (data.success) {
+            const tbody = document.getElementById('personnel-tbody');
+            const actionHeader = document.getElementById('admin-action-header');
+            
+            // Show the "Manage" column header ONLY for the Owner
+            if (currentUserRole === 'Owner') {
+                actionHeader.style.display = 'table-cell';
+            } else {
+                actionHeader.style.display = 'none';
+            }
+            
+            tbody.innerHTML = data.users.map(user => {
+                let mi = user.middle_initial ? `${user.middle_initial}. ` : '';
+                let fullName = `${user.first_name} ${mi}${user.last_name}`;
+                
+                let statusColor;
+                if (user.status === 'Online') statusColor = '#28a745'; 
+                else if (user.status === 'Idle') statusColor = '#ffc107'; 
+                else if (user.status === 'Pending') statusColor = '#fd7e14'; 
+                else statusColor = '#6c757d'; 
+                
+                let roleBadge = (user.role_name === "Owner")
+                                ? `<span class="badge badge-success">${user.role_name}</span>` 
+                                : `<span class="badge badge-warning">${user.role_name}</span>`;
+
+                let lastLoginDisplay = user.last_login ? user.last_login : '<i style="color:#aaa;">Never logged in</i>';
+
+                // Render Action Button Logic
+                let actionCell = '';
+                if (currentUserRole === 'Owner') {
+                    if (user.status === 'Pending') {
+                        actionCell = `<td>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn" style="background: #28a745; color: white; padding: 4px 10px; font-size: 0.8rem;" onclick="approveUser(${user.user_id})">Approve</button>
+                                <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="voidUser(${user.user_id})">Void</button>
+                            </div>
+                        </td>`;
+                    } else {
+                        // If they are an employee (not an Owner) and they aren't the current user logged in
+                        if (user.role_name === 'Employee' && parseInt(user.user_id) !== parseInt(currentUserId)) {
+                            actionCell = `<td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem;" onclick="promoteUser(${user.user_id}, '${user.first_name}')">Make Owner</button></td>`;
+                        } else {
+                            actionCell = `<td><span style="color:#aaa; font-size:0.85rem;">No Actions</span></td>`;
+                        }
+                    }
+                }
+
+                return `<tr>
+                    <td><strong>${fullName}</strong></td>
+                    <td>${roleBadge}</td>
+                    <td><span style="color: ${statusColor}; font-weight: bold;">● ${user.status}</span></td>
+                    <td style="font-size: 0.85rem; color: #555;">${lastLoginDisplay}</td>
+                    ${actionCell}
+                </tr>`;
+            }).join('');
+        }
+    } catch (error) {
+        console.error("Failed to load users: ", error);
+    }
+}
+
+//   =============== WORKING FINE ===========
+async function updatePassword() {
+    const currentInput = document.getElementById('cp-current').value;
+    const newInput = document.getElementById('cp-new').value;
+    const confirmInput = document.getElementById('cp-confirm').value;
+
+    if (!currentInput || !newInput || !confirmInput) {
+        return alert("Please fill in all password fields.");
+    }
+
+    if (newInput !== confirmInput) {
+        return alert("Validation Failed: New passwords do not match.");
+    }
+
+    if (newInput === currentInput) {
+        return alert("Error: New password cannot be the same as your old password.");
+    }
+
+    const fd = new FormData();
+    fd.append('action', 'update_password');
+    fd.append('current_password', currentInput);
+    fd.append('new_password', newInput);
+
+    try {
+        const response = await fetch('user_management.php', { method: 'POST', body: fd });
+        const data = await response.json();
+
+        if (!data.success) {
+            return alert("Validation Failed: " + data.message);
+        }
+
+        // Clear the fields on success
+        document.getElementById('cp-current').value = '';
+        document.getElementById('cp-new').value = '';
+        document.getElementById('cp-confirm').value = '';
+
+        alert("Success! Your password has been updated securely.");
+    } catch (error) {
+        console.error("Password update error: ", error);
+        alert("A connection error occurred with the server.");
+    }
+}
+
 //   =============== WORKING FINE ===========
 async function voidUser(userId) {
     if (!confirm("Are you sure you want to void and permanently delete this account request?")) {
@@ -644,7 +697,7 @@ async function voidUser(userId) {
     fd.append('target_id', userId);
 
     try {
-        const response = await fetch('authentication.php', { method: 'POST', body: fd });
+        const response = await fetch('user_management.php', { method: 'POST', body: fd });
         const data = await response.json();
 
         if (data.success) {
@@ -670,7 +723,7 @@ async function promoteUser(userId, firstName) {
     toBeSend.append('target_id', userId);
 
     try {
-        const response = await fetch('authentication.php', { method: 'POST', body: toBeSend });
+        const response = await fetch('user_management.php', { method: 'POST', body: toBeSend });
         const data = await response.json();
 
         if (data.success) {
@@ -686,28 +739,11 @@ async function promoteUser(userId, firstName) {
 }
 
 //   =============== WORKING FINE ===========
-function switchUserTab(tab) {
-    document.getElementById('utab-personnel').className = 'tab-btn inactive';
-    document.getElementById('utab-profile').className = 'tab-btn inactive';
-    document.getElementById('usec-personnel').classList.add('hidden');
-    document.getElementById('usec-profile').classList.add('hidden');
-
-    if (tab === 'personnel') {
-        document.getElementById('utab-personnel').className = 'tab-btn active-blue';
-        document.getElementById('usec-personnel').classList.remove('hidden');
-    } else if (tab === 'profile') {
-        document.getElementById('utab-profile').className = 'tab-btn active-blue';
-        document.getElementById('usec-profile').classList.remove('hidden');
-        loadProfileData(); 
-    }
-}
-
-//   =============== WORKING FINE ===========
 async function loadProfileData() {
     const fd = new FormData();
     fd.append('action', 'get_profile');
     try {
-        const res = await fetch('authentication.php', { method: 'POST', body: fd });
+        const res = await fetch('user_management.php', { method: 'POST', body: fd });
         const data = await res.json();
         if (data.success) {
             originalProfileData = data.profile;
@@ -774,7 +810,7 @@ async function saveProfileChanges() {
     fd.append('username', document.getElementById('inp-username').value);
 
     try {
-        const res = await fetch('authentication.php', { method: 'POST', body: fd });
+        const res = await fetch('user_management.php', { method: 'POST', body: fd });
         const data = await res.json();
 
         if (data.success) {
@@ -790,6 +826,12 @@ async function saveProfileChanges() {
     }
 }
 
+
+// =========================================
+// ===== INVENTORY MODULE FUNCTIONS ========
+// =========================================
+
+//   =============== WORKING FINE ===========
 async function fetchInventoryList() {
     const fd = new FormData();
     fd.append('action', 'fetch_inventory');
@@ -810,7 +852,7 @@ async function fetchInventoryList() {
     }
 }
 
-
+//   =============== WORKING FINE ===========
 function renderInventoryTable() {
     const tbody = document.getElementById('inventory-tbody');
     if (!tbody) return;
@@ -850,6 +892,7 @@ function renderInventoryTable() {
     }).join('');
 }
 
+//   =============== WORKING FINE ===========
 async function deleteInventory(batchId) {
     // Standard browser confirmation box
     if (!confirm("Are you sure you want to permanently delete this inventory batch? This action cannot be undone.")) {
@@ -876,35 +919,54 @@ async function deleteInventory(batchId) {
     }
 }
 
-
+//   =============== WORKING FINE ===========
 function openInventoryModal(id = null) {
     const isEdit = id !== null;
     document.getElementById('inv-modal-title').innerText = isEdit ? "Update Inventory Record" : "Register New Batch";
-    const item = isEdit ? db.find(i => i.id === id) : {id:'', batch:'', name:'', stock:'', price:'', expiry:'', drug_type: 'OTC'};
+    const item = isEdit ? db.find(i => i.id === id) : {id:'', batch:'', name:'', stock:'', price:'', expiry:'', drug_type: 'OTC', category: ''};
 
     document.getElementById('inv-id').value = item.id;
     document.getElementById('inv-batch').value = item.batch;
-    document.getElementById('inv-name').value = item.name;
     document.getElementById('inv-stock').value = item.stock;
     document.getElementById('inv-price').value = item.price;
     document.getElementById('inv-expiry').value = item.expiry;
     document.getElementById('inv-rx').checked = (item.drug_type === 'Rx');
+    
+    document.getElementById('inv-name').value = isEdit ? item.name : '';
+    document.getElementById('inv-category').value = isEdit ? item.category : '';
+    document.getElementById('inv-brand').value = ''; 
 
+    // Lock the master product details if editing an existing physical batch
     document.getElementById('inv-name').disabled = isEdit; 
+    document.getElementById('inv-category').disabled = isEdit;
+    document.getElementById('inv-brand').disabled = isEdit;
+
+    // (The buggy inv-btn-delete logic has been completely removed from here)
+
     document.getElementById('inventory-modal').classList.remove('hidden');
 }
 
+//   =============== WORKING FINE ===========
 async function saveInventory() {
     const id = document.getElementById('inv-id').value;
-    
     const data = new FormData();
-    data.append('action', id ? 'update_inventory' : 'add_inventory'); // Added logic for new items
+    
+    // Capitalization Formatter: Capitalizes the first letter of every word
+    const toTitleCase = (str) => str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+    
+    data.append('action', id ? 'update_inventory' : 'add_inventory');
     if (id) data.append('batch_id', id);
+    
     data.append('batch_number', document.getElementById('inv-batch').value);
     data.append('quantity_in_stock', document.getElementById('inv-stock').value);
     data.append('selling_price', document.getElementById('inv-price').value);
     data.append('expiry_date', document.getElementById('inv-expiry').value);
     data.append('drug_type', document.getElementById('inv-rx').checked ? 'Rx' : 'OTC');
+
+    // Apply formatting to text fields
+    data.append('name', toTitleCase(document.getElementById('inv-name').value.trim()));
+    data.append('brand_name', toTitleCase(document.getElementById('inv-brand').value.trim()));
+    data.append('category', toTitleCase(document.getElementById('inv-category').value.trim()));
 
     try {
         const res = await fetch('inventory.php', { method: 'POST', body: data });
@@ -921,11 +983,13 @@ async function saveInventory() {
     }
 }
 
+//   =============== WORKING FINE ===========
 function showDeleteConfirm(id) {
     batchToDelete = id;
     document.getElementById('delete-confirm-modal').classList.remove('hidden');
 }
 
+//   =============== WORKING FINE ===========
 async function confirmDelete() {
     if (!batchToDelete) return;
     
@@ -950,40 +1014,141 @@ async function confirmDelete() {
     }
 }
 
-
-
-
-
-function closeModal(id) { 
-    document.getElementById(id).classList.add('hidden'); 
+//   =============== WORKING FINE ===========
+async function openHistoryModal() {
+    const fd = new FormData();
+    fd.append('action', 'fetch_history');
+    
+    try {
+        const res = await fetch('inventory.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        const tbody = document.getElementById('history-tbody');
+        
+        if (data.success && data.logs.length > 0) {
+            tbody.innerHTML = data.logs.map(log => {
+                // Ensure POS Sales get a distinct badge color (primary/blue)
+                let badgeColor = (log.action === 'New Item' || log.action === 'Bulk Import' || log.action === 'Inventory Entry') ? 'badge-success' : 
+                                 (log.action === 'Update' || log.action === 'Smart Pricing' || log.action === 'Rx Verification') ? 'badge-warning' : 
+                                 (log.action === 'POS Sale') ? 'badge-primary' : 'badge-danger';
+                
+                return `<tr>
+                    <td style="font-size: 0.85rem; color: #555;">${log.time}</td>
+                    <td><strong>${log.user}</strong></td>
+                    <td><span class="badge ${badgeColor}">${log.action}</span></td>
+                    <td style="font-size: 0.9rem; color: #444;">${log.desc}</td>
+                </tr>`;
+            }).join('');
+        } else {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#888;">No history recorded yet.</td></tr>`;
+        }
+        
+        document.getElementById('history-modal').classList.remove('hidden');
+    } catch (e) {
+        alert("Failed to fetch history.");
+    }
 }
 
+//   =============== WORKING FINE ===========
+function processCSVImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+        alert("Invalid file format. Please upload a .csv file.");
+        event.target.value = ''; 
+        return;
+    }
 
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        // Strip hidden carriage returns that corrupt Excel CSV exports
+        const text = e.target.result.replace(/\r/g, ""); 
+        const lines = text.split('\n');
+        let validData = [];
+
+        const toTitleCase = (str) => str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue; 
+            
+            const columns = line.split(',');
+            
+            // As long as Batch Code and Name exist, the system will autofill the rest
+            if (columns.length >= 2 && columns[0].trim() !== "" && columns[1].trim() !== "") {
+                
+                let rawBrand = columns[2] ? columns[2].trim() : "";
+                let rawCategory = columns[3] ? columns[3].trim() : "";
+                
+                validData.push({
+                    batch: columns[0].trim().toUpperCase(),
+                    name: toTitleCase(columns[1].trim()),
+                    // Auto-Default Handlers for blank Excel cells
+                    brand: rawBrand ? toTitleCase(rawBrand) : 'Generic', 
+                    category: rawCategory ? toTitleCase(rawCategory) : 'Uncategorized',
+                    stock: parseInt(columns[4]) || 0, 
+                    price: parseFloat(columns[5]) || 0.00,
+                    expiry: columns[6] ? columns[6].trim() : ''
+                });
+            }
+        }
+
+        document.getElementById('csv-import').value = '';
+
+        if (validData.length > 0) {
+            const fd = new FormData();
+            fd.append('action', 'import_csv');
+            fd.append('csv_data', JSON.stringify(validData));
+
+            try {
+                const res = await fetch('inventory.php', { method: 'POST', body: fd });
+                const json = await res.json();
+                if (json.success) {
+                    alert(json.message);
+                    fetchInventoryList(); 
+                } else {
+                    alert("Database Error: " + json.message);
+                }
+            } catch(err) {
+                alert("Connection error during bulk import.");
+            }
+        } else {
+            alert(`Import Failed. Please ensure your CSV has data in the required columns (Batch Code and Medication Name).`);
+        }
+    };
+    reader.readAsText(file);
+}
+
+// =========================================
+// ======= EXPIRY & SMS ALERT SYSTEM =======
+// =========================================
+
+//   =============== WORKING FINE ===========
 function renderSmsSettings() {
-    let user = usersDb.find(u => u.id === currentUserId);
+    // Uses the browser's local storage to save preferences tied directly to the logged-in user
     let inputArea = document.getElementById('sms-input-area');
     let displayArea = document.getElementById('sms-display-area');
     let toggle = document.getElementById('sms-toggle');
     let statusMsg = document.getElementById('sms-status-msg');
 
-    toggle.checked = user.smsEnabled;
+    // Sync toggle switch to database state
+    toggle.checked = currentUserSmsEnabled;
 
-    if (user.smsNumber) {
+    if (currentUserPhone) {
         inputArea.style.display = 'none';
         displayArea.style.display = 'flex';
-        document.getElementById('saved-number-display').innerText = user.smsNumber;
+        document.getElementById('saved-number-display').innerText = currentUserPhone;
     } else {
         inputArea.style.display = 'flex';
         displayArea.style.display = 'none';
         document.getElementById('user-phone').value = '';
     }
 
-    if (user.smsEnabled && user.smsNumber) {
+    if (currentUserSmsEnabled && currentUserPhone) {
         statusMsg.style.display = 'block';
         statusMsg.style.color = 'var(--secondary)';
-        statusMsg.innerText = `✅ Active: Alerts are currently routing to ${user.smsNumber}`;
-    } else if (!user.smsEnabled && user.smsNumber) {
+        statusMsg.innerText = `✅ Active: Alerts are currently routing to ${currentUserPhone}`;
+    } else if (!currentUserSmsEnabled && currentUserPhone) {
         statusMsg.style.display = 'block';
         statusMsg.style.color = 'var(--danger)';
         statusMsg.innerText = `❌ Paused: Alerts are currently disabled. Flip the switch above to resume.`;
@@ -992,70 +1157,153 @@ function renderSmsSettings() {
     }
 }
 
-function saveSmsNumber() {
+//   =============== WORKING FINE ===========
+async function saveSmsNumber() {
     let phoneInput = document.getElementById('user-phone').value.trim();
     if(!phoneInput) return alert("Please enter a valid phone number.");
 
-    let user = usersDb.find(u => u.id === currentUserId);
-    user.smsNumber = phoneInput;
-    user.smsEnabled = true; 
+    const fd = new FormData();
+    fd.append('action', 'update_phone');
+    fd.append('phone_number', phoneInput);
 
-    alert(`Success! Contact number updated. SMS Alerts are now enabled.`);
-    renderSmsSettings();
+    try {
+        const res = await fetch('user_management.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        
+        if (data.success) {
+            alert(`Success! Contact number updated. SMS Alerts are now enabled.`);
+            
+            // Sync globally so UI updates instantly
+            currentUserPhone = phoneInput;
+            currentUserSmsEnabled = true; 
+            
+            if (document.getElementById('inp-phone')) {
+                document.getElementById('inp-phone').value = phoneInput;
+            }
+            if (originalProfileData) {
+                originalProfileData.phone_number = phoneInput;
+            }
+            
+            renderSmsSettings();
+        } else {
+            alert("Error: " + data.message);
+        }
+    } catch (e) {
+        alert("A connection error occurred.");
+    }
 }
 
+//   =============== WORKING FINE ===========
 function editSmsNumber() {
-    let user = usersDb.find(u => u.id === currentUserId);
     document.getElementById('sms-input-area').style.display = 'flex';
     document.getElementById('sms-display-area').style.display = 'none';
-    document.getElementById('user-phone').value = user.smsNumber;
+    document.getElementById('user-phone').value = currentUserPhone;
     document.getElementById('sms-status-msg').style.display = 'none';
 }
 
-function toggleSmsAlerts() {
-    let user = usersDb.find(u => u.id === currentUserId);
+//   =============== WORKING FINE ===========
+async function toggleSmsAlerts() {
     let toggle = document.getElementById('sms-toggle');
 
-    if (!user.smsNumber && toggle.checked) {
+    if (!currentUserPhone && toggle.checked) {
         toggle.checked = false; 
         return alert("Please save a contact number first before enabling SMS alerts.");
     }
 
-    user.smsEnabled = toggle.checked;
-    renderSmsSettings(); 
+    const fd = new FormData();
+    fd.append('action', 'toggle_sms');
+    fd.append('is_enabled', toggle.checked);
+
+    try {
+        const res = await fetch('user_management.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        
+        if (data.success) {
+            currentUserSmsEnabled = toggle.checked;
+            renderSmsSettings(); 
+        } else {
+            toggle.checked = !toggle.checked; // Revert switch if DB fails
+            alert("Failed to save preference to database.");
+        }
+    } catch(e) {
+        toggle.checked = !toggle.checked; 
+        alert("A connection error occurred.");
+    }
 }
 
-function logHistory(actionType, shortDescription) {
-    inventoryHistory.unshift({
-        time: new Date().toLocaleString(),
-        user: currentUserName,
-        action: actionType,
-        desc: shortDescription
+//   =============== WORKING FINE ===========
+function dismissAlert(alertId) {
+    dismissedAlerts.push(alertId);
+    refreshUI();
+}
+
+//   =============== WORKING FINE ===========
+function simulateSmsDispatch() {
+    // Abort if alerts are disabled or no phone number is registered
+    if (!currentUserSmsEnabled || !currentUserPhone) return;
+
+    db.forEach(item => {
+        let message = "";
+        let alertKey = ""; 
+
+        if (item.status === 'Low Stock') {
+            message = `Lyfe Pharmacy Alert: CRITICAL STOCK. ${item.name} is down to ${item.stock} units (Batch: ${item.batch}).`;
+            alertKey = `low_stock_${item.batch}`;
+        } else if (item.status === 'Expiring Soon' || item.status === 'Expired') {
+            let urgency = item.status === 'Expired' ? 'EXPIRED' : 'EXPIRING SOON';
+            message = `Lyfe Pharmacy Alert: ${urgency}. ${item.name} (Batch: ${item.batch}) expires on ${item.expiry}.`;
+            alertKey = `expiry_${item.batch}`;
+        }
+
+        // Fire the alert only if it exists, hasn't been sent yet this session, and hasn't been manually dismissed
+        if (message !== "" && !dispatchedSmsAlerts.has(alertKey) && !dismissedAlerts.includes(item.batch)) {
+            
+            // Prints a highly visible blue SMS pill in the F12 Developer Console
+            console.log(`%c[SMS SENT TO ${currentUserPhone}]`, 'color: #fff; background: #2563eb; padding: 2px 6px; border-radius: 4px; font-weight: bold;', message);
+            
+            dispatchedSmsAlerts.add(alertKey);
+        }
     });
 }
 
-function openHistoryModal() {
-    const tbody = document.getElementById('history-tbody');
 
-    if (inventoryHistory.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#888;">No history recorded yet.</td></tr>`;
-    } else {
-        tbody.innerHTML = inventoryHistory.map(log => {
-            let actionBadgeColor = log.action.includes('New') ? 'badge-success' : (log.action.includes('Edit') ? 'badge-warning' : 'badge-info');
-            
-            return `
-            <tr>
-                <td style="font-size: 0.85rem; color: #555;">${log.time}</td>
-                <td><strong>${log.user}</strong></td>
-                <td><span class="badge ${actionBadgeColor}">${log.action}</span></td>
-                <td style="font-size: 0.9rem; color: #444;">${log.desc}</td>
-            </tr>`;
-        }).join('');
+// =========================================
+// === SMART PRICING MODULE FUNCTION =======
+// =========================================
+
+//   =============== WORKING FINE ===========
+async function applySmartPrice(id) {
+    const newPriceText = document.getElementById(`new-price-preview-${id}`).innerText;
+    const newPrice = parseFloat(newPriceText);
+    
+    let item = db.find(i => i.id === id);
+    if (!item) return;
+
+    const oldPrice = item.price;
+    
+    const fd = new FormData();
+    fd.append('action', 'apply_smart_price');
+    fd.append('batch_id', item.id);
+    fd.append('new_price', newPrice);
+    fd.append('old_price', oldPrice);
+
+    try {
+        const res = await fetch('inventory.php', { method: 'POST', body: fd });
+        const json = await res.json();
+        
+        if (json.success) {
+            alert(`Success! Price for ${item.name} permanently updated to ₱${newPrice.toFixed(2)}`);
+            // Force a full inventory refresh to sync the POS and Masterlist with the new database price
+            fetchInventoryList(); 
+        } else {
+            alert("Database Error: " + json.message);
+        }
+    } catch(e) {
+        alert("A connection error occurred while applying the smart price.");
     }
-
-    document.getElementById('history-modal').classList.remove('hidden');
 }
 
+//   =============== WORKING FINE ===========
 function updatePricePreview(id, basePrice) {
     const slider = document.getElementById(`discount-slider-${id}`).value;
     document.getElementById(`discount-val-${id}`).innerText = slider + "% OFF";
@@ -1063,30 +1311,279 @@ function updatePricePreview(id, basePrice) {
     document.getElementById(`new-price-preview-${id}`).innerText = discounted.toFixed(2);
 }
 
-function applySmartPrice(id) {
-    const newPrice = parseFloat(document.getElementById(`new-price-preview-${id}`).innerText);
+
+// =========================================
+// ======== POS MODULE FUNCTIONS ===========
+// =========================================
+
+//   =============== WORKING FINE ===========
+function addToCart(id) {
     let item = db.find(i => i.id === id);
-    if(item) {
-        const oldPrice = item.price;
-        item.price = newPrice;
-        logHistory("Smart Price Update", `Changed price of ${item.name} from ₱${oldPrice.toFixed(2)} to ₱${newPrice.toFixed(2)} due to expiry risk.`);
-        alert(`Price for ${item.name} successfully updated to ₱${newPrice.toFixed(2)}`);
+    if (!item) return;
+
+    let existingInCart = cart.find(c => c.id === id);
+    let currentInCartQty = existingInCart ? existingInCart.qty : 0;
+
+    if (currentInCartQty >= item.stock) {
+        return alert(`Cannot add more. Only ${item.stock} unit(s) available in stock for this batch.`);
+    }
+
+    if (existingInCart) {
+        existingInCart.qty++;
+    } else {
+        cart.push({
+            id: item.id,
+            batch: item.batch,
+            name: item.name,
+            price: item.price,
+            drug_type: item.drug_type,
+            maxStock: item.stock,
+            qty: 1
+        });
     }
     refreshUI();
 }
 
-function addToCart(id) {
-    let item = db.find(i => i.id === id);
-    if(item && item.stock > 0) { cart.push({...item}); item.stock--; refreshUI(); } 
+function changeCartQty(index, delta) {
+    let cartItem = cart[index];
+    if (!cartItem) return;
+
+    let newQty = cartItem.qty + delta;
+    if (newQty <= 0) {
+        removeFromCart(index);
+        return;
+    }
+
+    if (newQty > cartItem.maxStock) {
+        return alert(`Maximum stock reached. Only ${cartItem.maxStock} units available in this batch.`);
+    }
+
+    cartItem.qty = newQty;
+    refreshUI();
+}
+
+function updateCartQty(index, value) {
+    let cartItem = cart[index];
+    if (!cartItem) return;
+
+    let parsed = parseInt(value, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+        removeFromCart(index);
+        return;
+    }
+
+    if (parsed > cartItem.maxStock) {
+        alert(`Stock limit reached. Quantity adjusted to available stock (${cartItem.maxStock}).`);
+        cartItem.qty = cartItem.maxStock;
+    } else {
+        cartItem.qty = parsed;
+    }
+    refreshUI();
 }
 
 function removeFromCart(index) {
-    let item = cart[index];
-    let dbItem = db.find(i => i.id === item.id);
-    if (dbItem) dbItem.stock++; 
-    cart.splice(index, 1); 
+    cart.splice(index, 1);
     refreshUI();
 }
+
+function processCheckout() {
+    if (cart.length === 0) return alert("Terminal basket is empty.");
+
+    // Checks real database drug_type
+    let requiresRx = cart.some(item => item.drug_type === 'Rx');
+
+    if (requiresRx) {
+        document.getElementById('rx-customer').value = '';
+        document.getElementById('rx-license').value = '';
+        document.getElementById('rx-ptr').value = '';
+        document.getElementById('prescription-modal').classList.remove('hidden');
+    } else {
+        finalizeCheckout(null);
+    }
+}
+
+async function finalizeCheckout(rxDetails) {
+    if (cart.length === 0) return;
+
+    const fd = new FormData();
+    fd.append('action', 'process_checkout');
+    fd.append('cart_data', JSON.stringify(cart));
+    
+    if (rxDetails) {
+        fd.append('customer_name', rxDetails.customer);
+        fd.append('prc_license', rxDetails.license);
+        fd.append('ptr_number', rxDetails.ptr);
+    }
+
+    try {
+        const res = await fetch('sales.php', { method: 'POST', body: fd });
+        const json = await res.json();
+        
+        if (json.success) {
+            // Use the real formatted ID returned from your database (e.g., TXN-000014)
+            const txnId = json.transaction_id;
+            const timeStr = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            let total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let totalItemsCount = cart.reduce((sum, item) => sum + item.qty, 0);
+            
+            totalRevenue += total;
+            
+            let itemSummary = cart.map(i => `${i.name} (x${i.qty})`).join(' | ');
+            salesHistory.unshift({ 
+                txn: txnId, 
+                items: itemSummary, 
+                qty: totalItemsCount, 
+                total: total, 
+                time: timeStr, 
+                cashier: currentUserName 
+            });
+            
+            let receipt = `<div style="text-align:center; font-weight:bold; font-size:1.1rem;">LYFE PHARMACY</div><div style="text-align:center; margin-bottom:10px;">PharmaSync System<br>Transaction ID: ${txnId}<br>Served by: ${currentUserName}</div>`;
+
+            if (rxDetails) {
+                receipt += `<div style="font-size:0.8rem; background:#f1f3f5; padding:8px; margin-bottom:10px; border-radius:4px; border-left: 3px solid var(--primary);">
+                    <strong>Rx Details Verified</strong><br>
+                    Patient: ${rxDetails.customer}<br>
+                    Physician Lic: ${rxDetails.license}<br>
+                    PTR No: ${rxDetails.ptr}
+                </div>`;
+            }
+
+            receipt += `<hr style="border-top:1px dashed #000; margin:10px 0;">`;
+            cart.forEach(i => {
+                let lineTotal = i.price * i.qty;
+                receipt += `<div style="display:flex; justify-content:space-between; margin: 3px 0;"><span>${i.qty}x ${i.name.substring(0, 18)}</span><span>₱${lineTotal.toFixed(2)}</span></div>`;
+            });
+            receipt += `<hr style="border-top:1px dashed #000; margin:10px 0;"><div style="display:flex; justify-content:space-between; font-weight:bold; font-size:1.1rem;"><span>TOTAL AMOUNT</span><span>₱${total.toFixed(2)}</span></div><div style="text-align:center; margin-top:20px; font-size:0.8rem;">Thank you! Have a safe day.</div>`;
+
+            document.getElementById('receipt-content').innerHTML = receipt;
+            document.getElementById('receipt-modal').classList.remove('hidden');
+
+            cart = [];
+            fetchInventoryList(); 
+            
+            if (revenueChartInst) {
+                revenueChartInst.data.datasets[0].data[6] = totalRevenue;
+                revenueChartInst.update();
+            }
+            if (financialHealthChartInst) {
+                financialHealthChartInst.data.datasets[0].data[3] = 130000 + totalRevenue; 
+                financialHealthChartInst.update();
+            }
+            
+        } else {
+            alert("Checkout Failed: " + json.message);
+        }
+    } catch (err) {
+        alert("A connection error occurred during checkout. Please verify the server is running.");
+    }
+}
+
+//   =============== WORKING FINE ===========
+function validatePrescriptionAndCheckout() {
+    let customer = document.getElementById('rx-customer').value.trim();
+    let license = document.getElementById('rx-license').value.trim();
+    let ptr = document.getElementById('rx-ptr').value.trim();
+
+    if (!customer || !license || !ptr) {
+        return alert("Validation Failed: Please fill in all prescription details (Patient Name, License No., and PTR No.) to proceed.");
+    }
+
+    closeModal('prescription-modal');
+    finalizeCheckout({ customer, license, ptr });
+}
+
+// =========================================
+// ======== POS MODULE FUNCTIONS ===========
+// =========================================
+
+
+async function fetchSalesHistory() {
+    const fd = new FormData();
+    fd.append('action', 'fetch_sales');
+    
+    try {
+        const res = await fetch('sales.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        
+        if (data.success) {
+            salesHistory = data.sales;
+            refreshUI(); // Instantly redraws the sales table
+        }
+    } catch (e) {
+        console.error("Failed to fetch sales history.");
+    }
+}
+
+
+
+function exportTransactionsCSV() {
+    if (salesHistory.length === 0) {
+        return alert("No transaction data available to export.");
+    }
+    // Just open the modal instead of the ugly browser confirm box
+    document.getElementById('export-modal').classList.remove('hidden');
+}
+
+function executeCSVExport(scope) {
+    // Hide the modal immediately after a choice is made
+    closeModal('export-modal'); 
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
+
+    let dataToExport = salesHistory;
+
+    // Filter logic if they clicked the 'Quarter' button
+    if (scope === 'quarter') {
+        dataToExport = salesHistory.filter(row => {
+            const saleDate = new Date(row.raw_date);
+            return saleDate.getFullYear() === currentYear && (Math.floor(saleDate.getMonth() / 3) + 1) === currentQuarter;
+        });
+
+        if (dataToExport.length === 0) {
+            return alert(`No sales recorded yet for Q${currentQuarter} ${currentYear}.`);
+        }
+    }
+
+    let csvTitle = (scope === 'quarter') ? `PharmaSync_Sales_Q${currentQuarter}_${currentYear}` : `PharmaSync_Master_Ledger_${currentYear}`;
+    
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Transaction ID,Items Summary,Total Qty,Total Amount (PHP),Timestamp,Cashier\n";
+
+    dataToExport.forEach(row => {
+        let safeItems = row.items.replace(/,/g, " & "); 
+        csvContent += `${row.txn},${safeItems},${row.qty},${row.total.toFixed(2)},${row.time},${row.cashier}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${csvTitle}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // NEW: Handles AI Upsell Logic for POS Terminal
 function updateRecommendations() {
@@ -1126,127 +1623,19 @@ function updateRecommendations() {
     }
 }
 
-function processCheckout() {
-    if (cart.length === 0) return alert("Terminal basket is empty.");
-
-    let requiresRx = cart.some(item => item.rxRequired);
-
-    if (requiresRx) {
-        document.getElementById('rx-customer').value = '';
-        document.getElementById('rx-license').value = '';
-        document.getElementById('rx-ptr').value = '';
-        document.getElementById('prescription-modal').classList.remove('hidden');
-    } else {
-        finalizeCheckout(null);
-    }
-}
-
-function validatePrescriptionAndCheckout() {
-    let customer = document.getElementById('rx-customer').value.trim();
-    let license = document.getElementById('rx-license').value.trim();
-    let ptr = document.getElementById('rx-ptr').value.trim();
-
-    if (!customer || !license || !ptr) {
-        return alert("Validation Failed: Please fill in all prescription details (Patient Name, License No., and PTR No.) to proceed.");
-    }
-
-    closeModal('prescription-modal');
-    finalizeCheckout({ customer, license, ptr });
-}
-
-function finalizeCheckout(rxDetails) {
-    let total = cart.reduce((sum, item) => sum + item.price, 0);
-    totalRevenue += total;
-    const txnId = "TXN-" + Math.floor(Math.random() * 89999 + 10000);
-    const timeStr = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-    let itemSummary = cart.map(i => i.name).join(' | ');
-    salesHistory.unshift({ 
-        txn: txnId, 
-        items: itemSummary, 
-        qty: cart.length, 
-        total: total, 
-        time: timeStr, 
-        cashier: currentUserName 
-    });
-
-    let receipt = `<div style="text-align:center; font-weight:bold; font-size:1.1rem;">LYFE PHARMACY</div><div style="text-align:center; margin-bottom:10px;">PharmaSync System<br>Transaction ID: ${txnId}<br>Served by: ${currentUserName}</div>`;
-
-    if (rxDetails) {
-        receipt += `<div style="font-size:0.8rem; background:#f1f3f5; padding:8px; margin-bottom:10px; border-radius:4px; border-left: 3px solid var(--primary);">
-            <strong>Rx Details Verified</strong><br>
-            Patient: ${rxDetails.customer}<br>
-            Physician Lic: ${rxDetails.license}<br>
-            PTR No: ${rxDetails.ptr}
-        </div>`;
-    }
-
-    receipt += `<hr style="border-top:1px dashed #000; margin:10px 0;">`;
-    cart.forEach(i => receipt += `<div style="display:flex; justify-content:space-between; margin: 3px 0;"><span>1x ${i.name.substring(0,15)}</span><span>₱${i.price.toFixed(2)}</span></div>`);
-    receipt += `<hr style="border-top:1px dashed #000; margin:10px 0;"><div style="display:flex; justify-content:space-between; font-weight:bold; font-size:1.1rem;"><span>TOTAL AMOUNT</span><span>₱${total.toFixed(2)}</span></div><div style="text-align:center; margin-top:20px; font-size:0.8rem;">Thank you! Have a safe day.</div>`;
-
-    document.getElementById('receipt-content').innerHTML = receipt;
-    document.getElementById('receipt-modal').classList.remove('hidden');
-
-    cart = [];
-
-    if(revenueChartInst) {
-        revenueChartInst.data.datasets[0].data[6] = totalRevenue;
-        revenueChartInst.update();
-    }
-    if(financialHealthChartInst) {
-        financialHealthChartInst.data.datasets[0].data[3] = 130000 + totalRevenue; 
-        financialHealthChartInst.update();
-    }
-    refreshUI();
-}
-
-function exportTransactionsCSV() {
-    if (salesHistory.length === 0) {
-        return alert("No transaction data available to export.");
-    }
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Transaction ID,Items Summary,Total Qty,Total Amount (PHP),Timestamp,Cashier\n";
-
-    salesHistory.forEach(row => {
-        let safeItems = row.items.replace(/,/g, " & "); 
-        csvContent += `${row.txn},${safeItems},${row.qty},${row.total.toFixed(2)},${row.time},${row.cashier}\n`;
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `PharmaSync_Sales_Report_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function dismissAlert(alertId) {
-    dismissedAlerts.push(alertId);
-    refreshUI();
-}
 
 function initCharts() {
+    const chartIds = ['revenueChart', 'demandChart', 'velocityChart', 'reorderChart', 'financialHealthChart'];
+    chartIds.forEach(id => {
+        let existingChart = Chart.getChart(id);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+    });
+
     const revCtx = document.getElementById('revenueChart').getContext('2d');
     revenueChartInst = new Chart(revCtx, {
         type: 'line',
-        data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Today'],
-            datasets: [{
-                label: 'Gross Sales (₱)',
-                data: [4200, 3900, 5100, 4800, 6200, 5500, totalRevenue],
-                borderColor: '#0056b3', backgroundColor: 'rgba(0, 86, 179, 0.08)',
-                borderWidth: 3, pointRadius: 4, pointBackgroundColor: '#20c997',
-                tension: 0.4, fill: true
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display: false} } }
-    });
-
-    const demCtx = document.getElementById('demandChart').getContext('2d');
-    new Chart(demCtx, {
-        type: 'bar',
         data: {
             labels: ['Antibiotics', 'Analgesics', 'Vitamins', 'Antidiarrheals'],
             datasets: [{
@@ -1323,56 +1712,11 @@ function initCharts() {
     });
 }
 
-function processCSVImport(event) {
-    const file = event.target.files[0];
-    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const text = e.target.result;
-        const lines = text.split('\n');
-        let importedCount = 0;
 
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue; 
-
-            const columns = line.split(',');
-
-            if (columns.length >= 5) {
-                const batch = columns[0].trim();
-                const name = columns[1].trim();
-                const stock = parseInt(columns[2].trim());
-                const price = parseFloat(columns[3].trim());
-                const expiry = columns[4].trim();
-
-                if (batch && name && !isNaN(stock) && !isNaN(price) && expiry) {
-                    db.push({
-                        id: Date.now() + i, 
-                        batch: batch,
-                        name: name,
-                        stock: stock,
-                        price: price,
-                        expiry: expiry,
-                        rxRequired: false 
-                    });
-                    importedCount++;
-                }
-            }
-        }
-
-        document.getElementById('csv-import').value = '';
-
-        if (importedCount > 0) {
-            logHistory("Bulk Import", `Imported ${importedCount} new items via CSV.`);
-            alert(`Success! Imported ${importedCount} items into the inventory.`);
-            refreshUI(); 
-        } else {
-            alert("No valid items found. Please ensure your CSV follows the format: Batch, Name, Stock, Price, Expiry Date.");
-        }
-    };
-    reader.readAsText(file);
-}
+// =========================================
+// ====== GLOBAL UI & DYNAMIC REFRESH ======
+// =========================================
 
 function refreshUI() {
     document.getElementById('dash-sales').innerText = `₱ ${totalRevenue.toFixed(2)}`;
@@ -1382,15 +1726,18 @@ function refreshUI() {
     const alertsHtml = db.map(item => {
         let alertBlock = '';
         
-        if(item.stock <= 20) { 
+        // NOW USING THE PHP STATUS FOR LOW STOCK
+        if(item.status === 'Low Stock') { 
             alertCount++; 
             alertBlock += `<div style="padding:15px; background:#fff3cd; color:#856404; margin-bottom:10px; border-radius:6px; border-left:5px solid var(--warning);"><strong>Critical Stock Alert:</strong> ${item.name} (${item.stock} remaining in batch ${item.batch})</div>`; 
         }
         
-        if(item.expiry.startsWith("2026") && !dismissedAlerts.includes(item.batch)) { 
+        // NOW USING THE PHP STATUS FOR EXPIRIES
+        if((item.status === 'Expiring Soon' || item.status === 'Expired') && !dismissedAlerts.includes(item.batch)) { 
             alertCount++; 
             let dismissBtn = `<button class="btn btn-secondary" style="margin-top:10px; padding: 6px 12px; font-size: 0.8rem;" onclick="dismissAlert('${item.batch}')">Okay (Remove Alert)</button>`;
-            alertBlock += `<div style="padding:15px; background:#f8d7da; color:#721c24; margin-bottom:10px; border-radius:6px; border-left:5px solid var(--danger);"><strong>Impending Expiry:</strong> ${item.name} (Batch ${item.batch}) expires on ${item.expiry}. Please monitor shelf life.<br>${dismissBtn}</div>`; 
+            let urgency = item.status === 'Expired' ? 'Expired' : 'Impending Expiry';
+            alertBlock += `<div style="padding:15px; background:#f8d7da; color:#721c24; margin-bottom:10px; border-radius:6px; border-left:5px solid var(--danger);"><strong>${urgency}:</strong> ${item.name} (Batch ${item.batch}) expires on ${item.expiry}. Please monitor shelf life.<br>${dismissBtn}</div>`; 
         }
         
         return alertBlock;
@@ -1399,24 +1746,28 @@ function refreshUI() {
     document.getElementById('alerts-container').innerHTML = alertsHtml || '<p style="color:#888;">No active alerts at this time.</p>';
     document.getElementById('dash-alerts-count').innerText = alertCount;
 
-    // if (document.getElementById('inventory-tbody')) {
-        
-    // }
-
     if (document.getElementById('pos-grid')) {
         const posSearch = document.getElementById('pos-search') ? document.getElementById('pos-search').value.toLowerCase() : '';
         const posFilter = document.getElementById('pos-filter') ? document.getElementById('pos-filter').value : 'all';
         
         const filteredPosDb = db.filter(item => {
-            const matchesSearch = item.name.toLowerCase().includes(posSearch);
+            const matchesSearch = item.name.toLowerCase().includes(posSearch) || item.batch.toLowerCase().includes(posSearch);
+            const isRx = item.drug_type === 'Rx';
             const matchesFilter = (posFilter === 'all') || 
-                                    (posFilter === 'rx' && item.rxRequired === true) || 
-                                    (posFilter === 'otc' && item.rxRequired === false);
+                                  (posFilter === 'rx' && isRx) || 
+                                  (posFilter === 'otc' && !isRx);
             return matchesSearch && matchesFilter;
         });
         
         document.getElementById('pos-grid').innerHTML = filteredPosDb.map(item => {
-            let rxBadge = item.rxRequired ? `<span style="font-size:0.7rem; background:var(--danger); color:white; padding:2px 6px; border-radius:4px; margin-top:5px; display:inline-block;">Rx Required</span>` : '';
+            const isRx = item.drug_type === 'Rx';
+            let rxBadge = isRx ? `<span style="font-size:0.7rem; background:var(--danger); color:white; padding:2px 6px; border-radius:4px; margin-top:5px; display:inline-block;">Rx Required</span>` : '';
+            
+            // NEW: Calculate remaining stock dynamically based on cart contents
+            let cartItem = cart.find(c => c.id === item.id);
+            let qtyInCart = cartItem ? cartItem.qty : 0;
+            let displayStock = item.stock - qtyInCart;
+
             return `<div class="pos-item-btn" onclick="addToCart(${item.id})">
                         <div>
                             <span style="font-weight:600; color:var(--dark); font-size:0.95rem; display:block;">${item.name}</span>
@@ -1424,34 +1775,45 @@ function refreshUI() {
                         </div>
                         <div style="margin-top:auto;">
                             <span style="display:block; font-size:1.4rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">₱${item.price.toFixed(2)}</span>
-                            <span style="font-size:0.8rem; color:#888; background:#f1f3f5; padding:3px 8px; border-radius:12px;">Stock: ${item.stock}</span>
+                            <span style="font-size:0.8rem; color:#888; background:#f1f3f5; padding:3px 8px; border-radius:12px;">Stock: ${displayStock}</span>
                         </div>
                     </div>`;
         }).join('');
         
         let cartTotal = 0;
         document.getElementById('cart-list').innerHTML = cart.map((item, index) => { 
-            cartTotal += item.price; 
-            let itemRxIcon = item.rxRequired ? `<span style="color:var(--danger); font-size:0.75rem; font-weight:bold;">[Rx]</span>` : '';
-            return `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px dashed var(--border); padding-bottom:5px;">
+            let lineTotal = item.price * item.qty;
+            cartTotal += lineTotal; 
+            let itemRxIcon = item.drug_type === 'Rx' ? `<span style="color:var(--danger); font-size:0.75rem; font-weight:bold;">[Rx]</span>` : '';
+            
+            return `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px dashed var(--border); padding-bottom:8px; gap:8px;">
                         <div style="flex:1;">
-                            <span style="display:block; font-size:0.9rem;">${item.name} ${itemRxIcon}</span>
-                            <span style="font-weight:bold; color:var(--dark);">₱${item.price.toFixed(2)}</span>
+                            <span style="display:block; font-size:0.85rem; font-weight:600;">${item.name} ${itemRxIcon}</span>
+                            <span style="font-size:0.8rem; color:#666;">₱${item.price.toFixed(2)} each</span>
                         </div>
-                        <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem; height: 30px; border-radius:4px;" onclick="removeFromCart(${index})">✕</button>
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <input type="number" min="1" max="${item.maxStock}" value="${item.qty}" style="width: 48px; text-align: center; padding: 2px 4px; height: 26px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 4px;" onchange="updateCartQty(${index}, this.value)">
+                        </div>
+                        <div style="text-align:right; min-width: 60px;">
+                            <span style="font-weight:bold; color:var(--dark); font-size:0.9rem; display:block;">₱${lineTotal.toFixed(2)}</span>
+                            <button class="btn btn-danger" style="padding:2px 6px; font-size:0.75rem; height: 22px; margin-top:2px;" onclick="removeFromCart(${index})">✕</button>
+                        </div>
                     </div>`; 
         }).join('');
+        
         document.getElementById('cart-subtotal').innerText = cartTotal.toFixed(2);
         document.getElementById('cart-total').innerText = cartTotal.toFixed(2);
         
-        updateRecommendations(); // Triggers the new recommendation widget
+        updateRecommendations();
     }
 
     // NEW: Added AI logic to compute discounts inside the Expiry Mitigation Protocol
-    const expiringItems = db.filter(item => item.expiry.startsWith("2026"));
+    const expiringItems = db.filter(item => item.status === 'Expiring Soon' || item.status === 'Expired');
     const spHtml = expiringItems.map(item => {
         let today = new Date();
         let expDate = new Date(item.expiry);
+        
+        // FIXED: Using Math.abs() prevents negative days for already expired items
         let diffTime = Math.abs(expDate - today);
         let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -1461,6 +1823,7 @@ function refreshUI() {
         else if (diffDays <= 90 && item.stock > 100) suggestedDiscount = 25;
         else if (diffDays <= 90) suggestedDiscount = 15;
 
+        // FIXED: Restored the clean, unbroken HTML template for the button
         return `
         <div class="card" style="border-top-color: var(--warning);">
             <h3>Expiry Mitigation Protocol</h3>
@@ -1484,6 +1847,7 @@ function refreshUI() {
             <button class="btn btn-primary" style="width: 100%;" onclick="applySmartPrice(${item.id})">Apply to Database</button>
         </div>
     `}).join('');
+
     document.getElementById('smart-pricing-container').innerHTML = spHtml || '<p style="color: #666; font-size: 1.1rem; grid-column: 1 / -1;">No items currently flagged for smart pricing mitigation.</p>';
 
     let salesHtml = `<tr><td colspan="6" style="text-align:center; color:#888;">No transactions processed yet.</td></tr>`;
@@ -1506,4 +1870,5 @@ function refreshUI() {
     if(document.getElementById('admin-sales-reports-tbody')) {
         document.getElementById('admin-sales-reports-tbody').innerHTML = salesHtml;
     }
+    simulateSmsDispatch();
 }

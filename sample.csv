@@ -1,0 +1,4 @@
+﻿Batch Code,Generic Name,Brand Name,Category,Stock Qty (Must be a whole number),Price (Can include decimals),Expiry Date (Format: YYYY-MM-DD)
+B-201,Paracetamol,Biogesic,Analgesic,500,5.5,2027-11-03
+B-202,Amoxicillin,,Antibiotic,300,8,2026-05-03
+B-203,Ascorbic Acid,Poten-Cee,Vitamins,1000,4.25,2026-03-20

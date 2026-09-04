@@ -190,6 +190,20 @@
         </div>
     </div>
 
+    <!-- EXPORT OPTIONS MODAL -->
+    <div id="export-modal" class="overlay hidden">
+        <div class="modal-box" style="width: 400px; text-align: center;">
+            <h2 style="margin-bottom: 10px; color: var(--dark);">Export Sales Data</h2>
+            <p style="color: #666; font-size: 0.9rem; margin-bottom: 25px;">Select the scope of the transaction history you want to download as a CSV file.</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn btn-primary" onclick="executeCSVExport('quarter')">Download Current Quarter Only</button>
+                <button class="btn btn-secondary" onclick="executeCSVExport('all')">Download Master Ledger (All Data)</button>
+                <button class="btn" style="background:#e9ecef; color:#333; margin-top: 10px;" onclick="closeModal('export-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- SIDE BAR DESIGN AND ACCESS LEVEL -->
     <div class="sidebar" style="display: none;" id="app-sidebar">
         
@@ -200,15 +214,15 @@
         <div class="nav-menu">
             <button class="nav-btn module-link" data-target="dashboard" data-roles="Owner,Employee" onclick="switchModule('dashboard')">📊 Dashboard</button>
             <button class="nav-btn module-link" data-target="inventory" data-roles="Owner,Employee" onclick="switchModule('inventory')">📦 Inventory Management</button>
-            <button class="nav-btn module-link" data-target="expiry-alerts" data-roles="Owner,Employee" onclick="switchModule('expiry-alerts')">⚠️ Expiry Alerts</button>
-            <button class="nav-btn module-link" data-target="users" data-roles="Owner,Employee" onclick="switchModule('users')">👥 Users Module</button>
-            
             <button class="nav-btn module-link" data-target="pos" data-roles="Employee" onclick="switchModule('pos')">🛒 Point of Sale (POS)</button>
+            <button class="nav-btn module-link" data-target="expiry-alerts" data-roles="Owner,Employee" onclick="switchModule('expiry-alerts')">⚠️ Expiry Alerts</button>
+            
             <button class="nav-btn module-link" data-target="sales-reports" data-roles="Employee" onclick="switchModule('sales-reports')">📋 Sales and Reports</button>
             <button class="nav-btn module-link" data-target="ai-demand" data-roles="Employee" onclick="switchModule('ai-demand')">🧠 AI Demand Analysis</button>
             <button class="nav-btn module-link" data-target="smart-pricing" data-roles="Employee" onclick="switchModule('smart-pricing')">📉 Smart Pricing</button>
-
+            
             <button class="nav-btn module-link" data-target="sales-predictive" data-roles="Owner" onclick="switchModule('sales-predictive')">📈 Sales & Predictive Analytics</button>
+            <button class="nav-btn module-link" data-target="users" data-roles="Owner,Employee" onclick="switchModule('users')">👥 Users Module</button>
         </div>
         <button class="nav-btn" style="margin-top: auto; border-top: 1px solid #333; padding-top: 20px;" onclick="handleLogout()">🚪 Secure Log Out</button>
     </div>
@@ -352,7 +366,7 @@
                 
                 <div class="filter-bar">
                     <div style="flex: 2;">
-                        <input type="text" id="pos-search" placeholder="🔍 Search medicines by name..." onkeyup="refreshUI()">
+                        <input type="text" id="pos-search" placeholder="Search medicines by name..." onkeyup="refreshUI()">
                     </div>
                     <div style="flex: 1;">
                         <select id="pos-filter" onchange="refreshUI()">
@@ -403,7 +417,7 @@
                 
                 <div class="filter-bar">
                     <div style="flex: 2;">
-                        <input type="text" id="inv-search" placeholder="🔍 Search inventory by name or batch..." onkeyup="renderInventoryTable()">
+                        <input type="text" id="inv-search" placeholder="Search inventory by name or batch..." onkeyup="renderInventoryTable()">
                     </div>
                     <div style="flex: 1;">
                         <select id="inv-filter" onchange="renderInventoryTable()">
@@ -438,26 +452,40 @@
                 <div class="modal-box">
                     <h2 id="inv-modal-title">Inventory Entry</h2>
                     <input type="hidden" id="inv-id">
+                    
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div class="form-group"><label>Batch Number</label><input type="text" id="inv-batch"></div>
-                        <div class="form-group"><label>Expiry Date</label><input type="date" id="inv-expiry"></div>
+                        <div class="form-group"><label>Batch Number</label><input type="text" id="inv-batch" placeholder="e.g. B-000"></div>
+                        <div class="form-group"><label>Expiry Date</label><input type="date" id="inv-expiry" required></div>
                     </div>
-                    <div class="form-group"><label>Medication Name</label><input type="text" id="inv-name"></div>
+                    
+                    <div class="form-group"><label>Medication Name</label><input type="text" id="inv-name" required></div>
+                    
+                    <!-- NEW FIELDS: Brand Name and Category -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div class="form-group"><label>Quantity</label><input type="number" id="inv-stock"></div>
-                        <div class="form-group"><label>Unit Price (₱)</label><input type="number" id="inv-price" step="0.01"></div>
+                        <div class="form-group">
+                            <label>Brand Name</label>
+                            <input type="text" id="inv-brand" placeholder="e.g. Biogesic (Leave blank for Generic)">
+                        </div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <input type="text" id="inv-category" placeholder="e.g. Antibiotic" required>
+                        </div>
                     </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group"><label>Quantity</label><input type="number" id="inv-stock" required></div>
+                        <div class="form-group"><label>Unit Price (₱)</label><input type="number" id="inv-price" step="0.01" required></div>
+                    </div>
+                    
                     <div class="form-group" style="margin-top: 5px;">
                         <label style="display:flex; align-items:center; gap:8px; cursor: pointer;">
                             <input type="checkbox" id="inv-rx" style="width: auto;"> Requires Medical Prescription (Rx)
                         </label>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 25px; align-items: center;">
-                        <button class="btn btn-danger hidden" id="inv-btn-delete" type="button" onclick="showDeleteConfirm()">Delete Item</button>
-                        <div style="margin-left: auto; display: flex; gap: 10px;">
-                            <button class="btn" style="background:#e9ecef; color:#333;" onclick="closeModal('inventory-modal')">Cancel</button>
-                            <button class="btn btn-secondary" onclick="saveInventory()">Save Record</button>
-                        </div>
+                    
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px;">
+                        <button class="btn" style="background:#e9ecef; color:#333;" type="button" onclick="closeModal('inventory-modal')">Cancel</button>
+                        <button class="btn btn-secondary" type="button" onclick="saveInventory()">Save Record</button>
                     </div>
                 </div>
             </div>
@@ -582,8 +610,7 @@
             <div id="smart-pricing" class="module">
                 <h2 class="header-title">Smart Pricing Engine</h2>
                 <p style="color: #666; margin-bottom: 20px;">Dynamically populate discounts for items nearing their expiration dates.</p>
-                <div id="smart-pricing-container" class="grid-cards">
-                </div>
+                <div id="smart-pricing-container" class="grid-cards"></div>
             </div>
 
             <!-- SALES PREDICTIVE MODULE UI, FUNCTION, AND STRUCTURE -->
@@ -642,10 +669,7 @@
                         </tbody>
                     </table>
                 </div>
-
             </div>
-
-            
         </div>
     </div>
 
